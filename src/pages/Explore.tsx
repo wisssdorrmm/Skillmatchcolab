@@ -1,0 +1,222 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Search, SlidersHorizontal, Bookmark } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { listProjects } from '../services/projects.service'
+import { getSkillsForUser } from '../services/profiles.service'
+import { rankProjects, type RankedProject } from '../services/matching.service'
+import { getProjectVisual } from '../utils/projectVisual'
+import { timeAgo } from '../utils/timeAgo'
+
+type Tab = 'all' | 'recommended' | 'newest' | 'active'
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'all', label: 'All Projects' },
+  { key: 'recommended', label: 'Recommended' },
+  { key: 'newest', label: 'Newest' },
+  { key: 'active', label: 'Most Active' },
+]
+
+export default function Explore() {
+  const { user, profile } = useAuth()
+  const navigate = useNavigate()
+
+  const [search, setSearch] = useState('')
+  const [tab, setTab] = useState<Tab>('all')
+  const [ranked, setRanked] = useState<RankedProject[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState<Set<string>>(new Set())
+
+  // Always fetches fresh from Supabase — Explore is the live discovery feed,
+  // never limited to what the user has previously viewed.
+  const load = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+    setError(null)
+    try {
+      const [projects, mySkills] = await Promise.all([
+        listProjects(search),
+        getSkillsForUser(user.id),
+      ])
+      const skillNames = mySkills.map((s) => s.name)
+      setRanked(rankProjects(projects, profile?.primary_role, skillNames))
+    } catch (err: any) {
+      setError(err.message ?? 'Could not load projects.')
+    } finally {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile?.primary_role, search])
+
+  useEffect(() => {
+    const handle = setTimeout(load, 250)
+    return () => clearTimeout(handle)
+  }, [load])
+
+  useEffect(() => {
+    const onFocus = () => load()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [load])
+
+  const toggleSaved = (id: string) => {
+    setSaved((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const visible = useMemo(() => {
+    switch (tab) {
+      case 'recommended':
+        // Only projects with a real, scored match — not just everything.
+        return ranked.filter((p) => p._matchScore > 0)
+      case 'newest':
+        return [...ranked].sort((a, b) => b.created_at.localeCompare(a.created_at))
+      case 'active':
+        // "Active" proxy = current team size — real data, no fabricated engagement score.
+        return [...ranked].sort((a, b) => {
+          const aCount = a.project_members?.[0]?.count ?? 0
+          const bCount = b.project_members?.[0]?.count ?? 0
+          return bCount - aCount
+        })
+      case 'all':
+      default:
+        return ranked // already relevance-ranked, all projects included
+    }
+  }, [ranked, tab])
+
+  return (
+    <div className="mx-auto max-w-md px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-text-primary">Explore</h1>
+        <button
+          className="relative flex h-9 w-9 items-center justify-center text-text-secondary hover:text-text-primary"
+          aria-label="Notifications"
+        >
+          <Bell size={21} />
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
+        </button>
+      </div>
+      <p className="mb-5 text-sm text-text-secondary">
+        Discover projects and find opportunities that match your skills.
+      </p>
+
+      <div className="mb-4 flex gap-2.5">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search projects, roles, or skills..."
+            className="w-full rounded-xl border border-border bg-surface py-3 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+          />
+        </div>
+        <button className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 text-sm text-text-secondary hover:text-text-primary">
+          <SlidersHorizontal size={15} /> Filter
+        </button>
+      </div>
+
+      <div className="mb-5 flex gap-2 overflow-x-auto">
+        {TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-colors ${
+              tab === key
+                ? 'bg-accent text-white'
+                : 'border border-border bg-surface text-text-secondary hover:border-text-muted'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {error && <p className="mb-4 text-sm text-danger">{error}</p>}
+
+      {loading ? (
+        <p className="py-10 text-center text-sm text-text-muted">Loading projects…</p>
+      ) : visible.length === 0 ? (
+        <div className="py-10 text-center">
+          <p className="text-sm text-text-secondary">No projects found.</p>
+          <button onClick={() => navigate('/create-project')} className="mt-2 text-sm text-accent hover:underline">
+            Post the first one
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {visible.map((project) => {
+            const visual = getProjectVisual(project.id)
+            const Icon = visual.icon
+            const isSaved = saved.has(project.id)
+            return (
+              <div key={project.id} className="rounded-xl border border-border bg-surface p-4">
+                <div className="mb-3 flex items-start gap-3">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: visual.bg }}
+                  >
+                    <Icon size={20} style={{ color: visual.fg }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-text-primary">{project.title}</h3>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-[11px] text-text-muted">{timeAgo(project.created_at)}</span>
+                      </div>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between">
+                      <p className="text-xs text-text-muted">{project.owner?.name ?? 'Unknown'}</p>
+                      <button
+                        onClick={() => toggleSaved(project.id)}
+                        className="text-text-muted hover:text-accent"
+                        aria-label="Save project"
+                      >
+                        <Bookmark size={15} fill={isSaved ? 'currentColor' : 'none'} className={isSaved ? 'text-accent' : ''} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mb-3 line-clamp-2 text-sm text-text-secondary">{project.description}</p>
+
+                {project.project_roles_needed.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {project.project_roles_needed.slice(0, 3).map((role) => (
+                      <span
+                        key={role.id}
+                        className="rounded-full border border-accent/40 px-2.5 py-0.5 text-[11px] text-accent"
+                      >
+                        {role.role_name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  {project.project_roles_needed.length > 0 ? (
+                    <span className="text-[11px] font-medium text-success">
+                      {project.project_roles_needed.length} open position
+                      {project.project_roles_needed.length === 1 ? '' : 's'}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    onClick={() => navigate(`/project/${project.id}`)}
+                    className="rounded-lg border border-accent/40 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/10"
+                  >
+                    Open Project
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
