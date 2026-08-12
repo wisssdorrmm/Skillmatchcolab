@@ -142,19 +142,27 @@ export default function ProjectDetails() {
         <div className="fixed inset-x-0 bottom-0 border-t border-border bg-bg p-4">
           <div className="mx-auto max-w-md">
             {myApplication ? (
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-sm capitalize text-text-secondary">
                   Application status: <span className="font-medium text-text-primary">{myApplication.status}</span>
                 </span>
-                {myApplication.status === 'pending' && (
+                <div className="flex shrink-0 items-center gap-3">
                   <button
-                    onClick={handleWithdraw}
-                    disabled={applying}
-                    className="text-sm text-danger hover:underline disabled:opacity-50"
+                    onClick={() => navigate(`/project/${id}/messages/${user?.id}`)}
+                    className="text-sm text-accent hover:underline"
                   >
-                    Withdraw
+                    Message
                   </button>
-                )}
+                  {myApplication.status === 'pending' && (
+                    <button
+                      onClick={handleWithdraw}
+                      disabled={applying}
+                      className="text-sm text-danger hover:underline disabled:opacity-50"
+                    >
+                      Withdraw
+                    </button>
+                  )}
+                </div>
               </div>
             ) : showApplyForm ? (
               <div className="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Search, SlidersHorizontal, Bookmark } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark } from 'lucide-react'
+import NotificationBell from '../components/NotificationBell'
 import { useAuth } from '../context/AuthContext'
 import { listProjects } from '../services/projects.service'
 import { getSkillsForUser } from '../services/profiles.service'
@@ -129,13 +130,7 @@ export default function Explore() {
     <div className="mx-auto max-w-md px-6 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]">
       <div className="mb-1 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-text-primary">Explore</h1>
-        <button
-          className="relative flex h-9 w-9 items-center justify-center text-text-secondary hover:text-text-primary"
-          aria-label="Notifications"
-        >
-          <Bell size={21} />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
-        </button>
+        <NotificationBell />
       </div>
       <p className="mb-5 text-sm text-text-secondary">
         Discover projects and find opportunities that match your skills.

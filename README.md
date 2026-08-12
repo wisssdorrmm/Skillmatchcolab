@@ -90,3 +90,25 @@ Feedback was the cards felt busy and the page had too little side padding. Chang
 - Combined owner name + timestamp into one quieter line instead of two competing rows
 - Reduced role chips shown on Home cards from visual noise (border-only, lighter weight)
 - More breathing room between cards (gap-3 → gap-4) and inside them
+
+## Update: Direct messaging, notifications, unread tracking, avatar policy fix
+
+**Run `sql/003_messaging_notifications_reads.sql` in Supabase SQL Editor first** — additive only, adds:
+- `direct_messages` table + RLS (either owner or applicant can start a thread, scoped per project+applicant pair)
+- `notifications` table + 3 triggers (new application → owner notified; status change → applicant notified; new direct message → other party notified)
+- `chat_reads` table (tracks last-read timestamp per user per project, powers unread badges)
+- Avatar storage bucket + policies (run this section even if you think the bucket exists — it's safe to re-run, `on conflict do nothing`)
+
+**New files:**
+- `src/services/directMessages.service.ts`, `src/services/notifications.service.ts`, `src/services/chatReads.service.ts`
+- `src/pages/ApplicantChat.tsx` — pre-acceptance 1:1 thread, either side can message first
+- `src/components/NotificationBell.tsx` — real dropdown panel, live unread count, realtime updates, click-to-mark-read
+
+**Changed:**
+- `ManageApplications.tsx` — every applicant card now has a "Message" button
+- `ProjectDetails.tsx` — once you've applied, a "Message" link appears next to your application status
+- `Chats.tsx` — now shows unread dot on team chats (via chat_reads) + a new "Direct Messages" section listing DM threads
+- `TeamChat.tsx` — marks itself read on open and on every new incoming message while you're viewing it
+- `Home.tsx` / `Explore.tsx` — bell icon is now functional, not decorative
+
+**Not done:** "new project matches your skills" notifications — would need a trigger comparing every new project against every user's skills, which doesn't scale well as triggers and is better as a scheduled job. Flagging rather than building something that'll fall over with more users.

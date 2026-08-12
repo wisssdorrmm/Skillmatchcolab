@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MessageCircle } from 'lucide-react'
 import {
   listApplicationsForProject,
   acceptApplication,
@@ -101,6 +101,7 @@ export default function ManageApplications() {
                     busy={actingOn === app.id}
                     onAccept={() => handleAccept(app)}
                     onReject={() => handleReject(app)}
+                    onMessage={() => navigate(`/project/${id}/messages/${app.applicant_id}`)}
                   />
                 ))}
               </div>
@@ -112,7 +113,13 @@ export default function ManageApplications() {
               <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">Decided</h2>
               <div className="flex flex-col gap-3">
                 {decided.map((app) => (
-                  <ApplicantCard key={app.id} app={app} busy={false} readOnly />
+                  <ApplicantCard
+                    key={app.id}
+                    app={app}
+                    busy={false}
+                    readOnly
+                    onMessage={() => navigate(`/project/${id}/messages/${app.applicant_id}`)}
+                  />
                 ))}
               </div>
             </>
@@ -138,12 +145,14 @@ function ApplicantCard({
   readOnly,
   onAccept,
   onReject,
+  onMessage,
 }: {
   app: any
   busy: boolean
   readOnly?: boolean
   onAccept?: () => void
   onReject?: () => void
+  onMessage?: () => void
 }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -166,24 +175,34 @@ function ApplicantCard({
       )}
       {app.message && <p className="mb-3 text-sm text-text-secondary">{app.message}</p>}
 
-      {!readOnly && (
-        <div className="flex gap-2">
-          <button
-            onClick={onReject}
-            disabled={busy}
-            className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-text-secondary hover:border-danger hover:text-danger disabled:opacity-50"
-          >
-            Decline
-          </button>
-          <button
-            onClick={onAccept}
-            disabled={busy}
-            className="flex-1 rounded-lg bg-accent py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-          >
-            Accept
-          </button>
-        </div>
-      )}
+      <div className="flex gap-2">
+        {!readOnly && (
+          <>
+            <button
+              onClick={onReject}
+              disabled={busy}
+              className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-text-secondary hover:border-danger hover:text-danger disabled:opacity-50"
+            >
+              Decline
+            </button>
+            <button
+              onClick={onAccept}
+              disabled={busy}
+              className="flex-1 rounded-lg bg-accent py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+            >
+              Accept
+            </button>
+          </>
+        )}
+        <button
+          onClick={onMessage}
+          className={`flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs font-medium text-text-secondary hover:border-accent hover:text-accent ${
+            readOnly ? 'flex-1' : 'px-3'
+          }`}
+        >
+          <MessageCircle size={13} /> {readOnly ? 'Message' : ''}
+        </button>
+      </div>
     </div>
   )
 }

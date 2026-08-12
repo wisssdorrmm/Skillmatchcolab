@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Plus, Search, SlidersHorizontal, Bookmark, FileText, Users } from 'lucide-react'
+import { Plus, Search, SlidersHorizontal, Bookmark, FileText, Users } from 'lucide-react'
+import NotificationBell from '../components/NotificationBell'
 import { useAuth } from '../context/AuthContext'
 import { listProjects } from '../services/projects.service'
 import { getSkillsForUser } from '../services/profiles.service'
@@ -96,13 +97,7 @@ export default function Home() {
           <span className="text-lg font-bold tracking-tight text-text-primary">SkillMatch</span>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            className="relative flex h-9 w-9 items-center justify-center text-text-secondary hover:text-text-primary"
-            aria-label="Notifications"
-          >
-            <Bell size={21} />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
-          </button>
+          <NotificationBell />
           <button
             onClick={() => navigate('/profile')}
             className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-accent text-xs font-semibold text-white"

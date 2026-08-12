@@ -16,6 +16,7 @@ import MyProjects from './pages/MyProjects'
 import ManageApplications from './pages/ManageApplications'
 import Chats from './pages/Chats'
 import TeamChat from './pages/TeamChat'
+import ApplicantChat from './pages/ApplicantChat'
 import Profile from './pages/Profile'
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
                 <Route path="/project/:id/applications" element={<ManageApplications />} />
                 <Route path="/chats" element={<Chats />} />
                 <Route path="/chats/:projectId" element={<TeamChat />} />
+                <Route path="/project/:projectId/messages/:applicantId" element={<ApplicantChat />} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
             </Route>
