@@ -80,3 +80,13 @@ See `sql/002_saved_projects.sql` in this zip. Creates a `saved_projects` table w
 ## Update: Fixed profile creation bug (foreign key error on signup)
 
 `updateProfile()` in `src/services/profiles.service.ts` now uses `upsert` instead of `update`. Previously, if no database trigger existed to auto-create a `profiles` row on signup, Profile Setup would silently fail to create the profile, then error with `insert or update on table "user_skills" violates foreign key constraint "user_skills_user_id_fkey"` when trying to save skills. Upsert guarantees the row exists either way.
+
+## Update: Decluttered card design + more padding
+
+Feedback was the cards felt busy and the page had too little side padding. Changes:
+- Outer page padding increased (px-5 → px-6)
+- Card padding increased (p-4 → p-5), sharper corner radius (rounded-2xl)
+- Removed the "Unknown" owner placeholder — now shows the owner's real name if available, or just the timestamp if not (rather than a meaningless label)
+- Combined owner name + timestamp into one quieter line instead of two competing rows
+- Reduced role chips shown on Home cards from visual noise (border-only, lighter weight)
+- More breathing room between cards (gap-3 → gap-4) and inside them
