@@ -18,6 +18,9 @@ import Chats from './pages/Chats'
 import TeamChat from './pages/TeamChat'
 import ApplicantChat from './pages/ApplicantChat'
 import Profile from './pages/Profile'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
+import DeactivateAccount from './pages/DeactivateAccount'
 
 export default function App() {
   return (
@@ -28,10 +31,13 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
 
           {/* Authenticated */}
           <Route element={<ProtectedRoute />}>
             <Route path="/profile-setup" element={<ProfileSetup />} />
+            <Route path="/deactivate-account" element={<DeactivateAccount />} />
 
             <Route element={<RequireProfile />}>
               <Route element={<AppLayout />}>

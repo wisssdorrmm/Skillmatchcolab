@@ -5,15 +5,13 @@ import { useAuth } from '../context/AuthContext'
 import { getSkillsForUser, getUserSkillIds, setUserSkills, updateProfile } from '../services/profiles.service'
 import { getAllSkills } from '../services/skills.service'
 import { uploadAvatar } from '../services/storage.service'
-import { listMyCreatedProjects, listMyJoinedProjects } from '../services/projects.service'
-import type { Project, Skill } from '../types/database'
+import type { Skill } from '../types/database'
 
 export default function Profile() {
   const { user, profile, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
 
   const [skills, setSkills] = useState<Skill[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
   const [editing, setEditing] = useState(false)
 
   const [name, setName] = useState('')
@@ -40,9 +38,6 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return
     getSkillsForUser(user.id).then(setSkills)
-    Promise.all([listMyCreatedProjects(user.id), listMyJoinedProjects(user.id)]).then(([c, j]) =>
-      setProjects([...c, ...j])
-    )
   }, [user])
 
   const startEditing = async () => {
@@ -213,19 +208,6 @@ export default function Profile() {
         </div>
       )}
 
-      {projects.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">Projects</h2>
-          <div className="flex flex-col gap-2">
-            {projects.map((p) => (
-              <div key={p.id} className="rounded-lg bg-surface px-3 py-2 text-sm text-text-primary">
-                {p.title}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <button
         onClick={() => navigate('/my-projects')}
         className="mb-4 flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3.5 hover:border-accent/50"
@@ -236,6 +218,18 @@ export default function Profile() {
         <ChevronRight size={16} className="text-text-muted" />
       </button>
 
+      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-surface">
+        <SettingsRow label="Terms of Service" onClick={() => navigate('/terms')} />
+        <SettingsRow label="Privacy Policy" onClick={() => navigate('/privacy')} />
+        <SettingsRow label="Help & Support" onClick={() => window.open('mailto:support@skillmatchhub.app')} />
+        <SettingsRow
+          label="Deactivate Account"
+          danger
+          onClick={() => navigate('/deactivate-account')}
+          last
+        />
+      </div>
+
       <button
         onClick={signOut}
         className="flex items-center gap-2 text-sm text-danger hover:underline"
@@ -243,6 +237,30 @@ export default function Profile() {
         <LogOut size={16} /> Log out
       </button>
     </div>
+  )
+}
+
+function SettingsRow({
+  label,
+  onClick,
+  danger,
+  last,
+}: {
+  label: string
+  onClick: () => void
+  danger?: boolean
+  last?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-sm hover:bg-surface-hover ${
+        !last ? 'border-b border-border' : ''
+      } ${danger ? 'text-danger' : 'text-text-primary'}`}
+    >
+      {label}
+      <ChevronRight size={16} className={danger ? 'text-danger' : 'text-text-muted'} />
+    </button>
   )
 }
 

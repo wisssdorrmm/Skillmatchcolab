@@ -74,7 +74,7 @@ export default function ProjectDetails() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-5 py-6 pb-24">
+    <div className="mx-auto max-w-md px-5 py-6">
       <div className="mb-5 flex items-center justify-between">
         <button onClick={() => navigate(-1)} className="text-text-muted hover:text-text-secondary">
           <ArrowLeft size={20} />
@@ -139,7 +139,7 @@ export default function ProjectDetails() {
       {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
       {!isOwner && !isMember && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-bg p-4">
+        <div className="sticky inset-x-0 bottom-0 -mx-5 border-t border-border bg-bg p-4">
           <div className="mx-auto max-w-md">
             {myApplication ? (
               <div className="flex items-center justify-between gap-3">

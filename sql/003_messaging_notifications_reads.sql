@@ -170,3 +170,24 @@ create policy "Users can upload their own avatar"
 create policy "Users can update their own avatar"
   on storage.objects for update
   using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-------------------------------------------------------------------
+-- 5. Account deactivation requests
+-------------------------------------------------------------------
+create table if not exists account_deletion_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  reason text,
+  requested_at timestamp with time zone default now(),
+  status text default 'pending' -- 'pending' | 'completed'
+);
+
+alter table account_deletion_requests enable row level security;
+
+create policy "Users can request deletion of their own account"
+  on account_deletion_requests for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can view their own deletion request"
+  on account_deletion_requests for select
+  using (auth.uid() = user_id);

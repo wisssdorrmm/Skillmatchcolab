@@ -112,3 +112,19 @@ Feedback was the cards felt busy and the page had too little side padding. Chang
 - `Home.tsx` / `Explore.tsx` — bell icon is now functional, not decorative
 
 **Not done:** "new project matches your skills" notifications — would need a trigger comparing every new project against every user's skills, which doesn't scale well as triggers and is better as a scheduled job. Flagging rather than building something that'll fall over with more users.
+
+## Update: Nav stability, Profile cleanup, legal pages, deactivation
+
+**Fixed:**
+- Bottom nav "disappearing" — was using `h-screen` (100vh, doesn't track mobile browser chrome collapsing/expanding). Switched to `h-dvh` (dynamic viewport height), which tracks the actual visible area. Also made the nav `shrink-0` so it can't get squeezed by content.
+- Project Details' Apply/Withdraw bar was `fixed` and overlapping the bottom nav (both fighting for the same screen position). Changed to `sticky` so it naturally stacks in the scroll flow instead.
+- Removed "Profile" from the bottom nav — reachable via the avatar in the Home/Explore header instead, per your request. **Heads up:** pages without that header (Chats, My Projects, Team Chat, etc.) currently have no direct profile shortcut — you'd navigate back to Home first. Flag it if that's annoying in practice.
+- Profile page: removed the redundant inline project list (it was pulling every created+joined project into a messy stacked list). "My Projects" button is now the only project entry point.
+
+**New — Profile Settings section:**
+- Terms of Service (`/terms`) and Privacy Policy (`/privacy`) — public pages, placeholder legal text (not reviewed by a lawyer — replace before real launch)
+- Deactivate Account (`/deactivate-account`) — two-step confirm (type "DELETE"), submits a request to `account_deletion_requests`, then signs out. **This does not actually delete the Supabase auth user** — that requires a service-role key, which can't run from the browser. This creates an auditable request; actual deletion needs to happen from your Supabase dashboard or a backend job.
+
+**Migration additions** (in `sql/003_...sql`, same file as before — just run it again, it's all `if not exists`): `account_deletion_requests` table + RLS.
+
+**Not fixed yet — needs your input:** the "applied but owner didn't see it" bug. I added `sql/diagnose_missing_applications.sql` — run those 3 queries and send me the results. My leading theory: the project was created under a different account than the one you're checking with (easy to happen while testing with multiple signups), but I don't want to guess further without seeing the actual data.
