@@ -4,15 +4,12 @@ import type { Project, ProjectRoleNeeded, ProjectStatus } from '../types/databas
 export interface ProjectCard extends Project {
   owner: { id: string; name: string | null; avatar_url: string | null } | null
   project_roles_needed: ProjectRoleNeeded[]
-  project_members: { count: number }[]
 }
 
 export async function listProjects(searchTerm = ''): Promise<ProjectCard[]> {
   let query = supabase
     .from('projects')
-    .select(
-      '*, owner:profiles!owner_id(id, name, avatar_url), project_roles_needed(*), project_members(count)'
-    )
+    .select('*, owner:profiles!owner_id(id, name, avatar_url), project_roles_needed(*)')
     .order('created_at', { ascending: false })
 
   if (searchTerm.trim()) {
