@@ -76,3 +76,7 @@ See `sql/002_saved_projects.sql` in this zip. Creates a `saved_projects` table w
 - `src/services/saved.service.ts` — new service for the above table
 - Bookmark icons on Home + Explore now persist for real (previously session-only)
 - Explore's **Filter** button now opens a real role-filter panel — select one or more roles, list narrows to matching projects, badge shows active filter count, "Clear" resets it
+
+## Update: Fixed profile creation bug (foreign key error on signup)
+
+`updateProfile()` in `src/services/profiles.service.ts` now uses `upsert` instead of `update`. Previously, if no database trigger existed to auto-create a `profiles` row on signup, Profile Setup would silently fail to create the profile, then error with `insert or update on table "user_skills" violates foreign key constraint "user_skills_user_id_fkey"` when trying to save skills. Upsert guarantees the row exists either way.

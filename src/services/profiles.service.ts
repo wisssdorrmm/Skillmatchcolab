@@ -8,7 +8,11 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function updateProfile(userId: string, updates: Partial<Profile>) {
-  const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
+  // upsert, not update: if no trigger created the profiles row on signup,
+  // a plain .update() would silently affect zero rows and leave the profile
+  // missing — which then breaks anything with a foreign key to profiles.id
+  // (like user_skills). Upsert guarantees the row exists either way.
+  const { error } = await supabase.from('profiles').upsert({ id: userId, ...updates }, { onConflict: 'id' })
   if (error) throw error
 }
 
