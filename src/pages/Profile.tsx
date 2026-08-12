@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
-import { LogOut, Pencil, Check, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { LogOut, Pencil, Check, X, Camera, Briefcase, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getSkillsForUser, getUserSkillIds, setUserSkills, updateProfile } from '../services/profiles.service'
 import { getAllSkills } from '../services/skills.service'
+import { uploadAvatar } from '../services/storage.service'
 import { listMyCreatedProjects, listMyJoinedProjects } from '../services/projects.service'
 import type { Project, Skill } from '../types/database'
 
 export default function Profile() {
   const { user, profile, refreshProfile, signOut } = useAuth()
+  const navigate = useNavigate()
 
   const [skills, setSkills] = useState<Skill[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -20,6 +23,19 @@ export default function Profile() {
   const [allSkills, setAllSkills] = useState<Skill[]>([])
   const [selectedSkillIds, setSelectedSkillIds] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
+
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
 
   useEffect(() => {
     if (!user) return
@@ -35,6 +51,9 @@ export default function Profile() {
     setPrimaryRole(profile.primary_role ?? '')
     setBio(profile.bio ?? '')
     setGoal(profile.goal ?? '')
+    setAvatarUrl(profile.avatar_url ?? '')
+    setAvatarPreview(null)
+    setAvatarFile(null)
     const [all, mine] = await Promise.all([getAllSkills(), getUserSkillIds(user.id)])
     setAllSkills(all)
     setSelectedSkillIds(new Set(mine))
@@ -53,11 +72,19 @@ export default function Profile() {
     if (!user) return
     setSaving(true)
     try {
+      let finalAvatarUrl = avatarUrl
+      if (avatarFile) {
+        setUploadingAvatar(true)
+        finalAvatarUrl = await uploadAvatar(user.id, avatarFile)
+        setUploadingAvatar(false)
+      }
+
       await updateProfile(user.id, {
         name: name.trim(),
         primary_role: primaryRole.trim(),
         bio: bio.trim(),
         goal: goal.trim(),
+        avatar_url: finalAvatarUrl || null,
       })
       await setUserSkills(user.id, Array.from(selectedSkillIds))
       await refreshProfile()
@@ -87,6 +114,30 @@ export default function Profile() {
         </div>
 
         <div className="flex flex-col gap-4">
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border bg-surface text-text-muted transition-colors hover:border-accent"
+            >
+              {avatarPreview || avatarUrl ? (
+                <img src={avatarPreview ?? avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
+              ) : (
+                <Camera size={22} />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
+            <span className="text-xs text-text-muted">
+              {uploadingAvatar ? 'Uploading…' : 'Tap to change photo'}
+            </span>
+          </div>
+
           <Field label="Name" value={name} onChange={setName} />
           <Field label="Primary role" value={primaryRole} onChange={setPrimaryRole} />
           <Field label="Bio" value={bio} onChange={setBio} textarea />
@@ -123,8 +174,12 @@ export default function Profile() {
     <div className="mx-auto max-w-md px-5 py-6">
       <div className="mb-6 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20 text-lg font-medium text-accent">
-            {profile.name?.charAt(0)?.toUpperCase() ?? '?'}
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-accent/20 text-lg font-medium text-accent">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.name ?? 'Avatar'} className="h-full w-full object-cover" />
+            ) : (
+              profile.name?.charAt(0)?.toUpperCase() ?? '?'
+            )}
           </div>
           <div>
             <h1 className="text-lg font-semibold text-text-primary">{profile.name}</h1>
@@ -170,6 +225,16 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      <button
+        onClick={() => navigate('/my-projects')}
+        className="mb-4 flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3.5 hover:border-accent/50"
+      >
+        <span className="flex items-center gap-2.5 text-sm text-text-primary">
+          <Briefcase size={17} className="text-accent" /> My Projects
+        </span>
+        <ChevronRight size={16} className="text-text-muted" />
+      </button>
 
       <button
         onClick={signOut}

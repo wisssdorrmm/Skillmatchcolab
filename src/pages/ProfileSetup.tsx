@@ -1,8 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Camera } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { updateProfile, getUserSkillIds, setUserSkills } from '../services/profiles.service'
 import { getAllSkills } from '../services/skills.service'
+import { uploadAvatar } from '../services/storage.service'
 import type { Skill } from '../types/database'
 
 export default function ProfileSetup() {
@@ -19,6 +21,19 @@ export default function ProfileSetup() {
   const [selectedSkillIds, setSelectedSkillIds] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [avatarUrl] = useState(profile?.avatar_url ?? '')
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
 
   useEffect(() => {
     getAllSkills().then(setAllSkills).catch(() => {})
@@ -43,11 +58,19 @@ export default function ProfileSetup() {
     setError(null)
     setLoading(true)
     try {
+      let finalAvatarUrl = avatarUrl
+      if (avatarFile) {
+        setUploadingAvatar(true)
+        finalAvatarUrl = await uploadAvatar(user.id, avatarFile)
+        setUploadingAvatar(false)
+      }
+
       await updateProfile(user.id, {
         name: name.trim(),
         primary_role: primaryRole.trim(),
         bio: bio.trim(),
         goal: goal.trim(),
+        avatar_url: finalAvatarUrl || null,
       })
       await setUserSkills(user.id, Array.from(selectedSkillIds))
       await refreshProfile()
@@ -65,6 +88,28 @@ export default function ProfileSetup() {
       <h1 className="mb-6 text-2xl font-semibold text-text-primary">Tell us about you</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border bg-surface text-text-muted transition-colors hover:border-accent"
+          >
+            {avatarPreview || avatarUrl ? (
+              <img src={avatarPreview ?? avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
+            ) : (
+              <Camera size={22} />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarChange}
+            className="hidden"
+          />
+          <span className="text-xs text-text-muted">Upload Profile Photo</span>
+        </div>
+
         <div>
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">Name</label>
           <input
@@ -141,7 +186,7 @@ export default function ProfileSetup() {
           disabled={loading}
           className="mt-2 rounded-lg bg-accent py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
-          {loading ? 'Saving…' : 'Continue'}
+          {uploadingAvatar ? 'Uploading photo…' : loading ? 'Saving…' : 'Continue'}
         </button>
       </form>
     </div>

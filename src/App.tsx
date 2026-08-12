@@ -9,6 +9,7 @@ import Signup from './pages/Signup'
 import ForgotPassword from './pages/ForgotPassword'
 import ProfileSetup from './pages/ProfileSetup'
 import Home from './pages/Home'
+import Explore from './pages/Explore'
 import ProjectDetails from './pages/ProjectDetails'
 import CreateProject from './pages/CreateProject'
 import MyProjects from './pages/MyProjects'
@@ -34,6 +35,7 @@ export default function App() {
             <Route element={<RequireProfile />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Home />} />
+                <Route path="/explore" element={<Explore />} />
                 <Route path="/project/:id" element={<ProjectDetails />} />
                 <Route path="/create-project" element={<CreateProject />} />
                 <Route path="/my-projects" element={<MyProjects />} />

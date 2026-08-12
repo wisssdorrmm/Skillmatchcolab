@@ -7,6 +7,7 @@ import { getSkillsForUser } from '../services/profiles.service'
 import { rankProjects, type RankedProject } from '../services/matching.service'
 import { getProjectVisual } from '../utils/projectVisual'
 import { timeAgo } from '../utils/timeAgo'
+import { getSavedProjectIds, saveProject, unsaveProject } from '../services/saved.service'
 
 type Tab = 'all' | 'recommended' | 'newest' | 'active'
 
@@ -27,6 +28,22 @@ export default function Explore() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<Set<string>>(new Set())
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set())
+
+  const availableRoles = useMemo(() => {
+    const roles = new Set<string>()
+    ranked.forEach((p) => p.project_roles_needed.forEach((r) => roles.add(r.role_name)))
+    return Array.from(roles).sort()
+  }, [ranked])
+
+  const toggleRoleFilter = (role: string) => {
+    setSelectedRoles((prev) => {
+      const next = new Set(prev)
+      next.has(role) ? next.delete(role) : next.add(role)
+      return next
+    })
+  }
 
   // Always fetches fresh from Supabase — Explore is the live discovery feed,
   // never limited to what the user has previously viewed.
@@ -50,6 +67,11 @@ export default function Explore() {
   }, [user, profile?.primary_role, search])
 
   useEffect(() => {
+    if (!user) return
+    getSavedProjectIds(user.id).then(setSaved).catch(() => {})
+  }, [user])
+
+  useEffect(() => {
     const handle = setTimeout(load, 250)
     return () => clearTimeout(handle)
   }, [load])
@@ -61,32 +83,47 @@ export default function Explore() {
   }, [load])
 
   const toggleSaved = (id: string) => {
+    if (!user) return
     setSaved((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+        unsaveProject(user.id, id).catch(() => {})
+      } else {
+        next.add(id)
+        saveProject(user.id, id).catch(() => {})
+      }
       return next
     })
   }
 
   const visible = useMemo(() => {
+    let list: RankedProject[]
     switch (tab) {
       case 'recommended':
-        // Only projects with a real, scored match — not just everything.
-        return ranked.filter((p) => p._matchScore > 0)
+        list = ranked.filter((p) => p._matchScore > 0)
+        break
       case 'newest':
-        return [...ranked].sort((a, b) => b.created_at.localeCompare(a.created_at))
+        list = [...ranked].sort((a, b) => b.created_at.localeCompare(a.created_at))
+        break
       case 'active':
-        // "Active" proxy = current team size — real data, no fabricated engagement score.
-        return [...ranked].sort((a, b) => {
+        list = [...ranked].sort((a, b) => {
           const aCount = a.project_members?.[0]?.count ?? 0
           const bCount = b.project_members?.[0]?.count ?? 0
           return bCount - aCount
         })
+        break
       case 'all':
       default:
-        return ranked // already relevance-ranked, all projects included
+        list = ranked
     }
-  }, [ranked, tab])
+
+    if (selectedRoles.size > 0) {
+      list = list.filter((p) => p.project_roles_needed.some((r) => selectedRoles.has(r.role_name)))
+    }
+
+    return list
+  }, [ranked, tab, selectedRoles])
 
   return (
     <div className="mx-auto max-w-md px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]">
@@ -114,10 +151,60 @@ export default function Explore() {
             className="w-full rounded-xl border border-border bg-surface py-3 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
           />
         </div>
-        <button className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 text-sm text-text-secondary hover:text-text-primary">
+        <button
+          onClick={() => setShowFilterPanel((v) => !v)}
+          className={`relative flex shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm transition-colors ${
+            selectedRoles.size > 0
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-border bg-surface text-text-secondary hover:text-text-primary'
+          }`}
+        >
           <SlidersHorizontal size={15} /> Filter
+          {selectedRoles.size > 0 && (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+              {selectedRoles.size}
+            </span>
+          )}
         </button>
       </div>
+
+      {showFilterPanel && (
+        <div className="mb-4 rounded-xl border border-border bg-surface p-4">
+          <div className="mb-2.5 flex items-center justify-between">
+            <span className="text-xs font-medium text-text-secondary">Filter by role</span>
+            {selectedRoles.size > 0 && (
+              <button
+                onClick={() => setSelectedRoles(new Set())}
+                className="text-xs text-accent hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {availableRoles.length === 0 ? (
+            <p className="text-xs text-text-muted">No roles to filter by yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {availableRoles.map((role) => {
+                const isSelected = selectedRoles.has(role)
+                return (
+                  <button
+                    key={role}
+                    onClick={() => toggleRoleFilter(role)}
+                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                      isSelected
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border text-text-secondary hover:border-text-muted'
+                    }`}
+                  >
+                    {role}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-5 flex gap-2 overflow-x-auto">
         {TABS.map(({ key, label }) => (
