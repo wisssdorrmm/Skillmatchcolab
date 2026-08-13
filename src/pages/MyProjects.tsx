@@ -8,7 +8,7 @@ import type { Project } from '../types/database'
 type Tab = 'created' | 'joined'
 
 export default function MyProjects() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('created')
   const [created, setCreated] = useState<Project[]>([])
@@ -32,13 +32,26 @@ export default function MyProjects() {
     <div className="mx-auto max-w-md px-5 py-6">
       <div className="mb-1 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-text-primary">My Projects</h1>
-        <button
-          onClick={() => navigate('/create-project')}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover"
-          aria-label="New project"
-        >
-          <Plus size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/create-project')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover"
+            aria-label="New project"
+          >
+            <Plus size={18} />
+          </button>
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-accent/20 text-xs font-semibold text-accent"
+            aria-label="Profile"
+          >
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              (profile?.name ?? 'U').charAt(0).toUpperCase()
+            )}
+          </button>
+        </div>
       </div>
       <p className="mb-5 text-sm text-text-secondary">Manage your collaborations and applications.</p>
 

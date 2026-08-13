@@ -5,6 +5,7 @@ import { listMyChatThreads, type ChatThread } from '../services/members.service'
 import { getReadTimestamps } from '../services/chatReads.service'
 import { listMyOwnerThreads, listMyApplicantThreads } from '../services/directMessages.service'
 import { timeAgo } from '../utils/timeAgo'
+import PageHeader from '../components/PageHeader'
 
 export default function Chats() {
   const { user } = useAuth()
@@ -47,7 +48,7 @@ export default function Chats() {
 
   return (
     <div className="mx-auto max-w-md px-6 py-6">
-      <h1 className="mb-5 text-xl font-semibold text-text-primary">Chats</h1>
+      <PageHeader title="Chats" />
 
       {loading ? (
         <p className="py-10 text-center text-sm text-text-muted">Loading…</p>

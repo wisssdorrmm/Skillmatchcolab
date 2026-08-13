@@ -128,3 +128,15 @@ Feedback was the cards felt busy and the page had too little side padding. Chang
 **Migration additions** (in `sql/003_...sql`, same file as before — just run it again, it's all `if not exists`): `account_deletion_requests` table + RLS.
 
 **Not fixed yet — needs your input:** the "applied but owner didn't see it" bug. I added `sql/diagnose_missing_applications.sql` — run those 3 queries and send me the results. My leading theory: the project was created under a different account than the one you're checking with (easy to happen while testing with multiple signups), but I don't want to guess further without seeing the actual data.
+
+## Update: Realtime fix, "matches your skills" notifications, code splitting, profile shortcuts
+
+**Run `sql/004_realtime_and_role_match_notifications.sql`** — this is almost certainly the actual fix for chat needing a manual refresh:
+
+Supabase doesn't automatically stream every table's changes — each table has to be explicitly added to the `supabase_realtime` publication (usually done via Database → Replication toggle in the dashboard, easy to miss when creating tables through SQL). `messages`, `direct_messages`, and `notifications` were never added, so `postgres_changes` subscriptions in the code were correctly written but had nothing to listen to. This migration adds them.
+
+**Also in that file:** the "notify me when a new project matches my skills" trigger you asked about — turns out this doesn't need a scheduled job after all (I was wrong earlier). It fires on `project_roles_needed` insert (which happens right after project creation), does one set-based query matching against `primary_role` and `user_skills`, and guards against duplicate notifications per project. Scales fine.
+
+**Code splitting:** converted all routes except Login/Signup to `React.lazy()`. Bundle warning is gone — main chunk dropped from 524kb to 400kb, and every other page (Home, Explore, Chats, etc.) now loads as its own small chunk on demand instead of all being bundled upfront.
+
+**Profile shortcuts restored:** added a small `PageHeader` component with the profile avatar to Chats and My Projects, so those pages aren't a dead end now that Profile isn't in the bottom nav.
