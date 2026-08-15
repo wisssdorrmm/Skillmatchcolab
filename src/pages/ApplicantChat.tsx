@@ -68,7 +68,8 @@ export default function ApplicantChat() {
     setText('')
     setSending(true)
     try {
-      await sendDirectMessage(projectId, applicantId, user.id, body)
+      const sent = await sendDirectMessage(projectId, applicantId, user.id, body)
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]))
     } catch (err: any) {
       setError(err.message)
     } finally {

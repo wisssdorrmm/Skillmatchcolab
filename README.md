@@ -140,3 +140,7 @@ Supabase doesn't automatically stream every table's changes — each table has t
 **Code splitting:** converted all routes except Login/Signup to `React.lazy()`. Bundle warning is gone — main chunk dropped from 524kb to 400kb, and every other page (Home, Explore, Chats, etc.) now loads as its own small chunk on demand instead of all being bundled upfront.
 
 **Profile shortcuts restored:** added a small `PageHeader` component with the profile avatar to Chats and My Projects, so those pages aren't a dead end now that Profile isn't in the bottom nav.
+
+## Update: Fixed "sender has to refresh to see own message"
+
+Both `sendMessage()` and `sendDirectMessage()` now return the inserted row (via `.select().single()` after insert) instead of just confirming success. The sender's screen shows their message the instant the send succeeds — it no longer waits on the realtime round-trip, which was the actual bug (realtime updating other people fine, but the sender was purely dependent on that same round-trip coming back to their own screen, which is fragile/slow by nature). The existing dedupe-by-id check means this won't double up when the realtime event for that same message arrives moments later.

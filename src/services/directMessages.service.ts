@@ -27,11 +27,14 @@ export async function sendDirectMessage(
   applicantId: string,
   senderId: string,
   text: string
-) {
-  const { error } = await supabase
+): Promise<DirectMessage> {
+  const { data, error } = await supabase
     .from('direct_messages')
     .insert({ project_id: projectId, applicant_id: applicantId, sender_id: senderId, text })
+    .select('*, sender:profiles!sender_id(id, name, avatar_url)')
+    .single()
   if (error) throw error
+  return data as unknown as DirectMessage
 }
 
 export function subscribeToDirectMessages(

@@ -16,11 +16,18 @@ export async function listMessages(projectId: string): Promise<MessageWithSender
   return (data ?? []) as unknown as MessageWithSender[]
 }
 
-export async function sendMessage(projectId: string, senderId: string, text: string) {
-  const { error } = await supabase
+export async function sendMessage(
+  projectId: string,
+  senderId: string,
+  text: string
+): Promise<MessageWithSender> {
+  const { data, error } = await supabase
     .from('messages')
     .insert({ project_id: projectId, sender_id: senderId, text })
+    .select('*, sender:profiles!sender_id(id, name, avatar_url)')
+    .single()
   if (error) throw error
+  return data as unknown as MessageWithSender
 }
 
 export function subscribeToMessages(

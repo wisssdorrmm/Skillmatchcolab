@@ -58,7 +58,12 @@ export default function TeamChat() {
     setText('')
     setSending(true)
     try {
-      await sendMessage(projectId, user.id, body)
+      const sent = await sendMessage(projectId, user.id, body)
+      // Show it immediately — don't wait on the realtime round-trip, which
+      // only needs to update *other* people's screens. The dedupe check in
+      // the realtime handler (by id) means this won't double up when that
+      // event arrives a moment later.
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]))
     } finally {
       setSending(false)
     }
