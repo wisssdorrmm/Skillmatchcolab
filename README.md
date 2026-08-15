@@ -169,3 +169,20 @@ The disposable-email blocklist only catches *known* temp-mail services — it co
 **Important:** this only works once deployed to Vercel — plain `npm run dev` has no `/api` routes to hit. The check is coded to **fail open** (allow signup) if the endpoint is unreachable, specifically so local development isn't blocked by this. That means locally, this protection is effectively off — only live on the deployed site. If you want it enforced locally too, `vercel dev` (Vercel's CLI) runs both the frontend and serverless functions together, unlike plain `vite dev`.
 
 **Combined with the disposable-email blocklist, signup now rejects:** known temp-mail services AND domains with no real mail server. It still can't verify someone owns `bob@gmail.com` specifically — that requires the confirmation-click flow, which stays off per your earlier request.
+
+## Update: Security pass
+
+**Fixed in code:**
+1. **Search filter injection** — `listProjects()` search was feeding raw user input directly into a Supabase `.or()` filter string. Someone typing commas/parentheses could manipulate the filter logic; `%`/`_` characters would act as unintended SQL wildcards. Now escaped and length-capped.
+2. **Open DNS-lookup relay** — the new `/api/validate-email-domain` function accepted any string as "domain" with no validation, so it could've been fed garbage or used to probe arbitrary hostnames. Now validates domain shape before doing any lookup.
+3. **No security headers at all** — added via `vercel.json`: `X-Frame-Options: DENY` (clickjacking protection), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (blocks camera/mic/geolocation access, none of which this app uses), and a `Content-Security-Policy` scoped to `self` + Supabase's domains only.
+4. **Unrestricted avatar uploads** — no file-type or size checks existed; someone could upload a 500MB file or a non-image. Now capped at 5MB, image-only, checked before the upload call.
+5. **Missing `autocomplete` attributes** on password fields — minor, but password managers behave better with `current-password` / `new-password` hints, and it's a widely-recommended baseline.
+6. **Dependency vulnerabilities** — `npm audit` found 3 high-severity issues (`nanoid` infinite loop bug, a `react-router` CSRF bypass). Ran `npm audit fix` — now 0 vulnerabilities, confirmed the app still builds clean after the version bumps.
+
+**What's already solid** (reviewed, not changed): RLS policies across all tables correctly scope reads/writes to the right owner/participant; no service-role key anywhere in client code; `.env` properly gitignored; React auto-escapes all rendered content so there's no XSS path through user-generated text (messages, bios, project descriptions, etc.) since nothing uses `dangerouslySetInnerHTML`.
+
+**Can't fix from code — recommend doing these in the Supabase dashboard:**
+- **Auth → Rate Limits**: Supabase has built-in login/signup rate limiting, worth confirming it's still at sane defaults (not disabled)
+- **Auth → Attack Protection → CAPTCHA**: since email confirmation is off, adding hCaptcha or Cloudflare Turnstile (both have free tiers) on signup would meaningfully cut down bot/bulk-account abuse — this needs a site key from one of those services plus a config toggle in Supabase, can't be done purely from this codebase
+- **Auth → Password Requirements**: currently just the client-side 6-character minimum this app enforces; Supabase can enforce stronger requirements (uppercase/number/symbol, leaked-password checking against HaveIBeenPwned) server-side if you want it non-bypassable

@@ -7,6 +7,18 @@ export interface ProjectCard extends Project {
   project_members: { count: number }[]
 }
 
+// PostgREST's .or() filter parses commas, parentheses, and periods as
+// syntax (to separate conditions and specify operators). Raw user input
+// containing those characters can manipulate the filter logic in ways
+// that weren't intended, or throw errors. % and _ also have meaning as
+// ilike wildcards. This escapes all of that before building the filter.
+function escapeForOrFilter(term: string): string {
+  return term
+    .replace(/[,()]/g, '') // strip filter-syntax delimiters entirely
+    .replace(/[%_]/g, (c) => `\\${c}`) // escape ilike wildcards
+    .slice(0, 200) // guard against pathologically long input
+}
+
 export async function listProjects(searchTerm = ''): Promise<ProjectCard[]> {
   let query = supabase
     .from('projects')
@@ -15,8 +27,10 @@ export async function listProjects(searchTerm = ''): Promise<ProjectCard[]> {
     )
     .order('created_at', { ascending: false })
 
-  if (searchTerm.trim()) {
-    query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+  const trimmed = searchTerm.trim()
+  if (trimmed) {
+    const safe = escapeForOrFilter(trimmed)
+    query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`)
   }
 
   const { data, error } = await query

@@ -1,8 +1,16 @@
 import { supabase } from '../lib/supabase'
 
 const AVATARS_BUCKET = 'avatars'
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5MB
 
 export async function uploadAvatar(userId: string, file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file.')
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    throw new Error('Image must be under 5MB.')
+  }
+
   const ext = file.name.split('.').pop() ?? 'jpg'
   const path = `${userId}/avatar.${ext}`
 
