@@ -157,3 +157,15 @@ Both `sendMessage()` and `sendDirectMessage()` now return the inserted row (via 
 **Honest limit:** this stops the obvious throwaway services, but it can't verify someone actually owns a real address like `bob@gmail.com` — genuine ownership verification only comes from the confirmation-email click, which is intentionally off. This is the standard trade-off apps make when they want frictionless signup: a blocklist catches the lazy/bulk abuse case, not a determined bad actor with a real inbox.
 
 If throwaway-account abuse becomes a real problem later, the next step up (without going back to forced email confirmation) would be a soft-gate: let people browse immediately, but require a confirmed email before they can create projects or apply — happy to build that if it comes up.
+
+## Update: Real domain validation (catches typo/fake domains like "languahe.com")
+
+The disposable-email blocklist only catches *known* temp-mail services — it correctly let `michea@languahe.com` through since that's not a recognized throwaway provider, just a domain that (most likely) doesn't exist or can't receive mail. Different problem, different fix:
+
+- `api/validate-email-domain.ts` — a Vercel serverless function that does a real DNS MX-record lookup on the submitted email's domain (Node's built-in `dns` module, no third-party API/key needed)
+- `src/utils/validateEmailDomain.ts` — client helper that calls it
+- `vercel.json` — updated so the SPA catch-all rewrite doesn't swallow `/api/*` requests (this would've silently broken the function otherwise)
+
+**Important:** this only works once deployed to Vercel — plain `npm run dev` has no `/api` routes to hit. The check is coded to **fail open** (allow signup) if the endpoint is unreachable, specifically so local development isn't blocked by this. That means locally, this protection is effectively off — only live on the deployed site. If you want it enforced locally too, `vercel dev` (Vercel's CLI) runs both the frontend and serverless functions together, unlike plain `vite dev`.
+
+**Combined with the disposable-email blocklist, signup now rejects:** known temp-mail services AND domains with no real mail server. It still can't verify someone owns `bob@gmail.com` specifically — that requires the confirmation-click flow, which stays off per your earlier request.

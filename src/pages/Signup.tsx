@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PasswordInput from '../components/PasswordInput'
 import { isDisposableEmail } from '../utils/disposableEmail'
+import { hasValidMxRecords } from '../utils/validateEmailDomain'
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -34,6 +35,14 @@ export default function Signup() {
     }
 
     setLoading(true)
+
+    const domainOk = await hasValidMxRecords(email)
+    if (!domainOk) {
+      setLoading(false)
+      setError("That email domain doesn't look like it can receive mail — please check for typos.")
+      return
+    }
+
     const { error } = await signUp(email, password)
     setLoading(false)
 
@@ -91,7 +100,7 @@ export default function Signup() {
             disabled={loading}
             className="mt-2 rounded-lg bg-accent py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
-            {loading ? 'Creating account…' : 'Create account'}
+            {loading ? 'Checking email…' : 'Create account'}
           </button>
         </form>
 
