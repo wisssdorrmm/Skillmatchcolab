@@ -149,3 +149,11 @@ Both `sendMessage()` and `sendDirectMessage()` now return the inserted row (via 
 
 - `src/components/PasswordInput.tsx` — reusable field with an eye icon to show/hide the password, used on both Login and Signup
 - Signup now has a Confirm Password field, validated client-side before submitting (must match, must be 6+ chars like before)
+
+## Update: Block disposable/throwaway email addresses at signup
+
+`src/utils/disposableEmail.ts` — a blocklist of ~90 known temp-mail domains (10minutemail, mailinator, guerrillamail, yopmail, etc.). Signup now rejects these client-side before hitting Supabase.
+
+**Honest limit:** this stops the obvious throwaway services, but it can't verify someone actually owns a real address like `bob@gmail.com` — genuine ownership verification only comes from the confirmation-email click, which is intentionally off. This is the standard trade-off apps make when they want frictionless signup: a blocklist catches the lazy/bulk abuse case, not a determined bad actor with a real inbox.
+
+If throwaway-account abuse becomes a real problem later, the next step up (without going back to forced email confirmation) would be a soft-gate: let people browse immediately, but require a confirmed email before they can create projects or apply — happy to build that if it comes up.

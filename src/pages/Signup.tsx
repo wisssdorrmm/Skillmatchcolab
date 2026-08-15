@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PasswordInput from '../components/PasswordInput'
+import { isDisposableEmail } from '../utils/disposableEmail'
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -16,6 +17,11 @@ export default function Signup() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (isDisposableEmail(email)) {
+      setError('Please use a real, permanent email address — temporary/disposable emails aren\'t allowed.')
+      return
+    }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters.')
