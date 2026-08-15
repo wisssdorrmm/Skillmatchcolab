@@ -144,3 +144,8 @@ Supabase doesn't automatically stream every table's changes — each table has t
 ## Update: Fixed "sender has to refresh to see own message"
 
 Both `sendMessage()` and `sendDirectMessage()` now return the inserted row (via `.select().single()` after insert) instead of just confirming success. The sender's screen shows their message the instant the send succeeds — it no longer waits on the realtime round-trip, which was the actual bug (realtime updating other people fine, but the sender was purely dependent on that same round-trip coming back to their own screen, which is fragile/slow by nature). The existing dedupe-by-id check means this won't double up when the realtime event for that same message arrives moments later.
+
+## Update: Password visibility toggle + Confirm Password on signup
+
+- `src/components/PasswordInput.tsx` — reusable field with an eye icon to show/hide the password, used on both Login and Signup
+- Signup now has a Confirm Password field, validated client-side before submitting (must match, must be 6+ chars like before)
