@@ -2,6 +2,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { ConversationMessage, ConversationSummary, ProfileLite } from '../types/database'
 import { PROFILE_LITE } from './profiles.service'
+import { withColumnFallback, withoutNewProfileFields } from '../lib/schemaCompat'
 
 export async function listConversations(): Promise<ConversationSummary[]> {
   const { data, error } = await supabase.rpc('list_conversations')
@@ -16,11 +17,12 @@ export async function startConversation(otherUserId: string): Promise<string> {
 }
 
 export async function getConversationPartner(conversationId: string, myId: string): Promise<ProfileLite | null> {
-  const { data, error } = await supabase
-    .from('conversations')
-    .select(`id, a:profiles!user_a(${PROFILE_LITE}), b:profiles!user_b(${PROFILE_LITE})`)
-    .eq('id', conversationId)
-    .maybeSingle()
+  const select = `id, a:profiles!user_a(${PROFILE_LITE}), b:profiles!user_b(${PROFILE_LITE})`
+  const { data, error } = await withColumnFallback(
+    (cols) => supabase.from('conversations').select(cols).eq('id', conversationId).maybeSingle(),
+    select,
+    withoutNewProfileFields(select),
+  )
   if (error) throw error
   if (!data) return null
   const row = data as unknown as { a: ProfileLite; b: ProfileLite }

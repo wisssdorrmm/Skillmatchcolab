@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { CommunityMessage, CommunityRoom } from '../types/database'
+import { withColumnFallback, withoutNewProfileFields } from '../lib/schemaCompat'
 
 const MESSAGE_SELECT =
   '*, author:profiles!user_id(id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified, is_official), likes:community_message_likes(user_id), reply:reply_to(id, body, author:profiles!user_id(name))'
@@ -17,26 +18,44 @@ export async function getRoomBySlug(slug: string): Promise<CommunityRoom | null>
   return data as CommunityRoom | null
 }
 
+const LEGACY_MESSAGE_SELECT = withoutNewProfileFields(MESSAGE_SELECT)
+
 export async function listRoomMessages(roomId: string, before?: string, limit = 50): Promise<CommunityMessage[]> {
-  let query = supabase.from('community_messages').select(MESSAGE_SELECT).eq('room_id', roomId).order('created_at', { ascending: false }).limit(limit)
-  if (before) query = query.lt('created_at', before)
-  const { data, error } = await query
+  const { data, error } = await withColumnFallback(
+    (select) => {
+      let query = supabase.from('community_messages').select(select).eq('room_id', roomId).order('created_at', { ascending: false }).limit(limit)
+      if (before) query = query.lt('created_at', before)
+      return query
+    },
+    MESSAGE_SELECT,
+    LEGACY_MESSAGE_SELECT,
+  )
   if (error) throw error
   return ((data ?? []) as unknown as CommunityMessage[]).reverse()
 }
 
 export async function getRoomMessage(id: string): Promise<CommunityMessage | null> {
-  const { data, error } = await supabase.from('community_messages').select(MESSAGE_SELECT).eq('id', id).maybeSingle()
+  const { data, error } = await withColumnFallback(
+    (select) => supabase.from('community_messages').select(select).eq('id', id).maybeSingle(),
+    MESSAGE_SELECT,
+    LEGACY_MESSAGE_SELECT,
+  )
   if (error) throw error
   return data as unknown as CommunityMessage | null
 }
 
 export async function postRoomMessage(roomId: string, userId: string, body: string, replyTo?: string | null): Promise<CommunityMessage> {
-  const { data, error } = await supabase
-    .from('community_messages')
-    .insert({ room_id: roomId, user_id: userId, body, reply_to: replyTo ?? null })
-    .select(MESSAGE_SELECT)
-    .single()
+  // The insert and its select run as one statement, so a missing column means nothing was saved yet.
+  const { data, error } = await withColumnFallback(
+    (select) =>
+      supabase
+        .from('community_messages')
+        .insert({ room_id: roomId, user_id: userId, body, reply_to: replyTo ?? null })
+        .select(select)
+        .single(),
+    MESSAGE_SELECT,
+    LEGACY_MESSAGE_SELECT,
+  )
   if (error) throw error
   return data as unknown as CommunityMessage
 }
