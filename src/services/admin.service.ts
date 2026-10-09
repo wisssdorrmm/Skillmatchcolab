@@ -69,6 +69,7 @@ export interface AdminMember {
   last_sign_in_at: string | null
   onboarded_at: string | null
   is_admin: boolean
+  is_verified: boolean
   projects: number
   total_count: number
 }
@@ -81,6 +82,11 @@ export async function listMembers(search: string, limit = 50, offset = 0): Promi
 
 export async function setAdmin(userId: string, makeAdmin: boolean) {
   const { error } = await supabase.rpc('admin_set_admin', { p_user: userId, p_make: makeAdmin })
+  if (error) throw error
+}
+
+export async function setVerified(userId: string, verified: boolean) {
+  const { error } = await supabase.rpc('admin_set_verified', { p_user: userId, p_verified: verified })
   if (error) throw error
 }
 

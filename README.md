@@ -26,6 +26,7 @@ Open Supabase → **SQL Editor** and run these files in order (paste each whole 
 2. [`sql/002_more_projects.sql`](sql/002_more_projects.sql) — adds non-developer roles and the first 350 extra projects.
 3. [`sql/003_more_projects_part2.sql`](sql/003_more_projects_part2.sql) — the other 350.
 4. [`sql/004_privacy_lockdown.sql`](sql/004_privacy_lockdown.sql) — removes old "anyone can read" rules so profiles and projects are members-only.
+5. [`sql/005_verified_and_cobuild.sql`](sql/005_verified_and_cobuild.sql) — verified badges (admins give them in **Admin → Members**) and the Cobuild project itself.
 
 - Works on the existing SkillMatch database and on a brand-new Supabase project.
 - Safe to run again later — it only adds what's missing, refreshes imported projects and never removes roles.

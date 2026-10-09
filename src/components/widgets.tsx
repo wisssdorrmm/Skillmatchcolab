@@ -9,6 +9,7 @@ import type { ProjectCard } from '../services/projects.service'
 import { Avatar } from './ui/Avatar'
 import { ProgressBar } from './ui/ProgressBar'
 import { Skeleton } from './ui/States'
+import { VerifiedBadge } from './ui/VerifiedBadge'
 
 export function RailCard({ title, to, children, className }: { title: string; to?: string; children: ReactNode; className?: string }) {
   return (
@@ -52,7 +53,10 @@ export function TopBuildersList({ rows, loading, compact }: { rows: LeaderboardR
             <span className={cn('w-5 text-center text-sm font-bold tabular-nums', RANK_STYLES[r.rank - 1] ?? 'text-text-muted')}>{r.rank}</span>
             <Avatar name={r.name} src={r.avatar_url} size="sm" seed={r.user_id} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-text-primary">{r.name}</span>
+              <span className="flex items-center gap-1 text-sm font-semibold text-text-primary">
+                <span className="truncate">{r.name}</span>
+                <VerifiedBadge show={r.is_verified} size={14} />
+              </span>
               {!compact && <span className="block truncate text-xs text-text-secondary">{r.primary_role ?? 'Builder'}</span>}
             </span>
             <span className="shrink-0 text-sm font-semibold tabular-nums text-accent">{compactNumber(r.xp)} XP</span>
@@ -76,7 +80,10 @@ export function Podium({ rows }: { rows: LeaderboardRow[] }) {
           <Link key={r.user_id} to={`/u/${r.user_id}`} className="flex min-w-0 flex-col items-center text-center">
             {i === 1 && <Crown size={20} className="mb-1 text-gold" />}
             <Avatar name={r.name} src={r.avatar_url} size={i === 1 ? 'lg' : 'md'} seed={r.user_id} className={cn('rounded-full ring-2', rings[i])} />
-            <span className="mt-2 w-full truncate text-sm font-semibold text-text-primary">{r.name}</span>
+            <span className="mt-2 flex w-full items-center justify-center gap-1 text-sm font-semibold text-text-primary">
+              <span className="truncate">{r.name}</span>
+              <VerifiedBadge show={r.is_verified} size={14} />
+            </span>
             <span className="text-xs font-semibold text-accent">{compactNumber(r.xp)} XP</span>
             <div className={cn('mt-2 flex w-full items-start justify-center rounded-t-xl border border-b-0 border-border bg-surface-2 pt-2', heights[i])}>
               <span className={cn('text-lg font-bold', i === 1 ? 'text-gold' : i === 0 ? 'text-silver' : 'text-bronze')}>{labels[i]}</span>

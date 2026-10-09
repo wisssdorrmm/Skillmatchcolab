@@ -18,6 +18,7 @@ import { ErrorState, Spinner } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
 import { Bubble, ChatHeader, ChatScreen, Composer, DaySeparator } from '../components/chat/ChatParts'
 import { useStickToBottom, withDays } from '../components/chat/chatUtils'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 export default function Conversation() {
   const { id = '' } = useParams()
@@ -83,7 +84,16 @@ export default function Conversation() {
               </Link>
             ) : null
           }
-          title={partner ? <Link to={`/u/${partner.id}`}>{partner.name}</Link> : '…'}
+          title={
+            partner ? (
+              <Link to={`/u/${partner.id}`} className="inline-flex max-w-full items-center gap-1">
+                <span className="truncate">{partner.name}</span>
+                <VerifiedBadge show={partner.is_verified} size={15} />
+              </Link>
+            ) : (
+              '…'
+            )
+          }
           subtitle={partner ? (partner.show_online ? lastActiveLabel(partner.last_seen_at) : (partner.primary_role ?? 'Builder')) : undefined}
         />
       }

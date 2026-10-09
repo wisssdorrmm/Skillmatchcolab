@@ -7,6 +7,7 @@ import { Logo } from '../Logo'
 import { Avatar } from '../ui/Avatar'
 import { ButtonLink } from '../ui/Button'
 import { MAIN_NAV } from './navItems'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
 
 function CountPill({ n }: { n: number }) {
   if (n <= 0) return null
@@ -80,7 +81,10 @@ export function Sidebar() {
         <Link to="/profile" className="mt-3 flex items-center gap-3 rounded-xl border-t border-border px-2 pt-4 hover:opacity-90">
           <Avatar name={profile?.name} src={profile?.avatar_url} size="md" seed={profile?.id} />
           <span className="min-w-0">
-            <span className="block truncate text-[15px] font-semibold text-text-primary">{profile?.name ?? 'You'}</span>
+            <span className="flex items-center gap-1 text-[15px] font-semibold text-text-primary">
+              <span className="truncate">{profile?.name ?? 'You'}</span>
+              <VerifiedBadge show={profile?.is_verified} />
+            </span>
             <span className="block truncate text-[13px] text-text-secondary">
               {profile?.username ? `@${profile.username}` : (profile?.primary_role ?? 'Builder')}
             </span>

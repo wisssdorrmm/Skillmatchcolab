@@ -49,6 +49,7 @@ import { EmptyState, ErrorState, ListSkeleton } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
 import { GithubIcon } from '../components/ui/GithubIcon'
 import { ProjectIcon } from '../components/project/ProjectCard'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wider text-text-muted">{children}</h2>
@@ -297,7 +298,10 @@ export default function ProjectDetails() {
           <Link to={project.owner ? `/u/${project.owner.id}` : '#'} className="flex min-w-0 items-center gap-3">
             <Avatar name={project.owner?.name} src={project.owner?.avatar_url} size="md" lastSeen={project.owner?.show_online ? project.owner.last_seen_at : null} showStatus seed={project.owner?.id} />
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-text-primary">{project.owner?.name ?? 'A builder'}</span>
+              <span className="flex items-center gap-1 text-sm font-semibold text-text-primary">
+                <span className="truncate">{project.owner?.name ?? 'A builder'}</span>
+                <VerifiedBadge show={project.owner?.is_verified} size={15} />
+              </span>
               <span className="block truncate text-xs text-text-secondary">
                 {project.owner?.primary_role ?? 'Owner'} · posted {formatDate(project.created_at)}
               </span>
@@ -538,7 +542,10 @@ export default function ProjectDetails() {
               <Link key={m.user_id} to={`/u/${m.user_id}`} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-surface-2">
                 <Avatar name={m.profile?.name} src={m.profile?.avatar_url} size="md" lastSeen={m.profile?.show_online ? m.profile.last_seen_at : null} showStatus seed={m.user_id} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-text-primary">{m.profile?.name}</span>
+                  <span className="flex items-center gap-1 text-sm font-semibold text-text-primary">
+                    <span className="truncate">{m.profile?.name}</span>
+                    <VerifiedBadge show={m.profile?.is_verified} size={15} />
+                  </span>
                   <span className="block truncate text-xs text-text-secondary">{m.profile?.primary_role ?? 'Builder'}</span>
                 </span>
                 <span className="text-xs text-text-muted">{m.role ?? 'Member'}</span>

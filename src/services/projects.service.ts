@@ -4,7 +4,7 @@ import type { Milestone, Project, ProjectRoleNeeded, ProfileLite } from '../type
 import { safeSearchTerm } from './profiles.service'
 
 export interface ProjectCard extends Project {
-  owner: Pick<ProfileLite, 'id' | 'name' | 'avatar_url' | 'username'> | null
+  owner: Pick<ProfileLite, 'id' | 'name' | 'avatar_url' | 'username' | 'is_verified'> | null
   project_roles_needed: Pick<ProjectRoleNeeded, 'id' | 'role_name'>[]
   project_members: { count: number }[]
   project_upvotes: { count: number }[]
@@ -25,7 +25,7 @@ export interface ProjectDetail extends Project {
 }
 
 const CARD_SELECT =
-  '*, owner:profiles!owner_id(id, name, avatar_url, username), project_roles_needed(id, role_name), project_members(count), project_upvotes(count)'
+  '*, owner:profiles!owner_id(id, name, avatar_url, username, is_verified), project_roles_needed(id, role_name), project_members(count), project_upvotes(count)'
 
 export type ProjectSort = 'newest' | 'progress' | 'stars' | 'updated'
 
@@ -74,7 +74,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
   const { data, error } = await supabase
     .from('projects')
     .select(
-      '*, owner:profiles!owner_id(id, name, avatar_url, username, primary_role, last_seen_at, show_online), project_roles_needed(id, role_name), project_members(user_id, role, joined_at, profile:profiles(id, name, avatar_url, username, primary_role, last_seen_at, show_online)), project_milestones(*)',
+      '*, owner:profiles!owner_id(id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified), project_roles_needed(id, role_name), project_members(user_id, role, joined_at, profile:profiles(id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified)), project_milestones(*)',
     )
     .eq('id', id)
     .order('position', { referencedTable: 'project_milestones', ascending: true })

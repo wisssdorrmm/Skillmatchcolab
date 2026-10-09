@@ -14,6 +14,7 @@ import { Chip } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { EmptyState, ErrorState, ListSkeleton } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 export default function People() {
   const { user } = useAuth()
@@ -77,7 +78,10 @@ export default function People() {
                 <Link to={`/u/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar name={p.name} src={p.avatar_url} size="lg" lastSeen={p.show_online ? p.last_seen_at : null} showStatus seed={p.id} />
                   <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold text-text-primary">{p.name}</span>
+                    <span className="flex items-center gap-1 text-[15px] font-semibold text-text-primary">
+                      <span className="truncate">{p.name}</span>
+                      <VerifiedBadge show={p.is_verified} size={15} />
+                    </span>
                     <span className="block truncate text-[13px] text-text-secondary">
                       {p.primary_role ?? 'Builder'}
                       {p.username ? ` · @${p.username}` : ''}

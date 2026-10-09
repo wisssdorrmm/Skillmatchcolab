@@ -37,6 +37,7 @@ import { EmptyState, ErrorState, ListSkeleton, Skeleton } from '../components/ui
 import { useToast } from '../components/ui/Toast'
 import { GithubIcon } from '../components/ui/GithubIcon'
 import { ProjectCard } from '../components/project/ProjectCard'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 function MenuLink({ to, icon: Icon, label, onClick, danger }: { to?: string; icon: LucideIcon; label: string; onClick?: () => void; danger?: boolean }) {
   const cls = cn('flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] font-medium hover:bg-surface-2/50', danger ? 'text-danger' : 'text-text-primary')
@@ -114,7 +115,10 @@ export default function Profile() {
               )}
             </div>
           </div>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">{p.name}</h1>
+          <h1 className="mt-3 flex items-center gap-2 text-2xl font-bold tracking-tight text-text-primary">
+            {p.name}
+            <VerifiedBadge show={p.is_verified} size={22} />
+          </h1>
           <p className="text-[15px] text-text-secondary">
             {p.username ? `@${p.username} · ` : ''}
             {p.primary_role ?? 'Builder'}

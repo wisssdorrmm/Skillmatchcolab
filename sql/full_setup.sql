@@ -412,6 +412,40 @@ join public.admin_bootstrap_emails b on lower(b.email) = lower(u.email)
 on conflict do nothing;
 
 
+-- ---------------------------------------------------------------------
+-- Verified badge: only admins can give or remove it.
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists is_verified boolean not null default false;
+
+create or replace function public.cb_profiles_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and not public.is_admin() then
+    if tg_op = 'INSERT' then
+      new.is_verified := false;
+    else
+      new.is_verified := old.is_verified;
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists cb_profiles_guard on public.profiles;
+create trigger cb_profiles_guard before insert or update on public.profiles
+  for each row execute function public.cb_profiles_guard();
+
+create or replace function public.admin_set_verified(p_user uuid, p_verified boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  perform public.cb_require_admin();
+  update public.profiles set is_verified = coalesce(p_verified, false) where id = p_user;
+  if coalesce(p_verified, false) then
+    insert into public.notifications (user_id, type, title, body, link)
+    values (p_user, 'verified', 'You''re verified', 'A verified badge now shows next to your name.', '/profile');
+  end if;
+end $$;
+
+
 -- =====================================================================
 -- 5. ACTIVITY (streaks) + PRESENCE (active users)
 -- =====================================================================
@@ -1360,11 +1394,12 @@ language sql stable security definer set search_path = public as $$
     coalesce((select max(len) from runs), 0);
 $$;
 
-create or replace function public.get_leaderboard(p_period text default 'all', p_limit int default 20)
-returns table (user_id uuid, name text, avatar_url text, username text, primary_role text,
+drop function if exists public.get_leaderboard(text, int);
+create function public.get_leaderboard(p_period text default 'all', p_limit int default 20)
+returns table (user_id uuid, name text, avatar_url text, username text, primary_role text, is_verified boolean,
                xp int, projects int, steps int, rank int)
 language sql stable security definer set search_path = public as $$
-  select x.user_id, p.name, p.avatar_url, p.username, p.primary_role, x.xp, x.projects, x.steps,
+  select x.user_id, p.name, p.avatar_url, p.username, p.primary_role, p.is_verified, x.xp, x.projects, x.steps,
          (row_number() over (order by x.xp desc, p.created_at asc))::int
   from public.cb_xp_table(case p_period
                             when 'week' then now() - interval '7 days'
@@ -1488,11 +1523,12 @@ begin
     from days order by days.d;
 end $$;
 
-create or replace function public.admin_list_members(p_search text default null, p_limit int default 50, p_offset int default 0)
+drop function if exists public.admin_list_members(text, int, int);
+create function public.admin_list_members(p_search text default null, p_limit int default 50, p_offset int default 0)
 returns table (id uuid, name text, username text, email text, avatar_url text, primary_role text,
                experience_level text, availability text, country text, referral_source text, interests text[],
                created_at timestamptz, last_seen_at timestamptz, last_sign_in_at timestamptz, onboarded_at timestamptz,
-               is_admin boolean, projects int, total_count int)
+               is_admin boolean, is_verified boolean, projects int, total_count int)
 language plpgsql stable security definer set search_path = public as $$
 #variable_conflict use_column
 declare q text := nullif(btrim(coalesce(p_search, '')), '');
@@ -1513,6 +1549,7 @@ begin
     select f.id, f.name, f.username, f.email, f.avatar_url, f.primary_role, f.experience_level, f.availability,
            f.country, f.referral_source, f.interests, f.created_at, f.last_seen_at, f.last_sign_in_at, f.onboarded_at,
            exists (select 1 from public.app_admins a where a.user_id = f.id),
+           f.is_verified,
            (select count(*)::int from public.projects pr where pr.owner_id = f.id),
            (count(*) over ())::int
     from f
@@ -1737,7 +1774,7 @@ begin
         'mark_conversation_read', 'get_unread_dm_count', 'get_leaderboard', 'get_user_stats', 'get_platform_stats',
         'admin_overview', 'admin_member_growth', 'admin_active_series', 'admin_list_members', 'admin_set_admin',
         'admin_add_admin_by_email', 'admin_insights', 'admin_recent_activity', 'admin_set_featured',
-        'admin_review_funding', 'admin_broadcast', 'admin_import_projects', 'is_admin'
+        'admin_review_funding', 'admin_broadcast', 'admin_import_projects', 'admin_set_verified', 'is_admin'
       )
   loop
     execute format('revoke all on function %s from public, anon', f.sig);

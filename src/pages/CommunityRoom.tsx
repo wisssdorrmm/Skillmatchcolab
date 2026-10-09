@@ -25,6 +25,7 @@ import { useToast } from '../components/ui/Toast'
 import { ChatHeader, ChatScreen, Composer, DaySeparator } from '../components/chat/ChatParts'
 import { useStickToBottom, withDays } from '../components/chat/chatUtils'
 import { useUnread } from '../context/UnreadContext'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 export default function CommunityRoom() {
   const { slug = '' } = useParams()
@@ -243,6 +244,7 @@ function MessageRow({
           <Link to={`/u/${m.user_id}`} className="truncate text-[15px] font-semibold text-text-primary hover:underline">
             {m.author?.name ?? 'Builder'}
           </Link>
+          <VerifiedBadge show={m.author?.is_verified} size={15} className="self-center" />
           {isAdminAuthor && <ShieldCheck size={14} className="shrink-0 text-accent" aria-label="Admin" />}
           <span className="shrink-0 text-xs text-text-muted">{formatTime(m.created_at)}</span>
         </div>

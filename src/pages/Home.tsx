@@ -16,6 +16,7 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState, ErrorState, ListSkeleton, Skeleton } from '../components/ui/States'
 import { ProjectCard, ProjectIcon } from '../components/project/ProjectCard'
 import { FundingPromo, Podium, TopBuildersList } from '../components/widgets'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 export default function Home() {
   const { user, profile } = useAuth()
@@ -54,6 +55,7 @@ export default function Home() {
         <p className="text-[15px] text-text-secondary">{greeting()},</p>
         <h1 className="mt-0.5 flex items-center gap-2.5 text-[32px] font-bold leading-tight tracking-tight text-text-primary sm:text-[36px]">
           {firstName(profile?.name)}
+          <VerifiedBadge show={profile?.is_verified} size={26} />
           {s && (
             <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-bold text-accent">
               <Zap size={12} /> Lv {s.level}

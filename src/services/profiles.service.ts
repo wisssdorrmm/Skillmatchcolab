@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { Profile, Skill } from '../types/database'
 
-export const PROFILE_LITE = 'id, name, avatar_url, username, primary_role, last_seen_at, show_online'
+export const PROFILE_LITE = 'id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified'
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
@@ -68,7 +68,7 @@ export interface PeopleFilters {
 export async function searchPeople({ search = '', role, limit = 60 }: PeopleFilters) {
   let query = supabase
     .from('profiles')
-    .select('id, name, avatar_url, username, primary_role, country, bio, last_seen_at, show_online, experience_level')
+    .select('id, name, avatar_url, username, primary_role, country, bio, last_seen_at, show_online, experience_level, is_verified')
     .not('name', 'is', null)
     .not('onboarded_at', 'is', null)
     .order('last_seen_at', { ascending: false, nullsFirst: false })

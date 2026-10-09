@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ShieldCheck } from 'lucide-react'
+import { BadgeCheck, Search, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useDebounced } from '../../hooks/useAsync'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, lastActiveLabel, timeAgo } from '../../lib/format'
 import { AVAILABILITY, EXPERIENCE, INTERESTS, REFERRALS, labelFor } from '../../lib/constants'
-import { listMembers, setAdmin, type AdminMember } from '../../services/admin.service'
+import { listMembers, setAdmin, setVerified, type AdminMember } from '../../services/admin.service'
+import { VerifiedBadge } from '../../components/ui/VerifiedBadge'
 import { Avatar } from '../../components/ui/Avatar'
 import { Badge } from '../../components/ui/Badge'
 import { Button, ButtonLink } from '../../components/ui/Button'
@@ -65,6 +66,21 @@ export default function AdminMembers() {
       toast(errorMessage(e), 'error')
     } finally {
       setMore(false)
+    }
+  }
+
+  const toggleVerified = async (m: AdminMember) => {
+    setBusy(true)
+    try {
+      await setVerified(m.id, !m.is_verified)
+      const next = { ...m, is_verified: !m.is_verified }
+      setRows((prev) => prev.map((r) => (r.id === m.id ? next : r)))
+      setOpen(next)
+      toast(next.is_verified ? `${m.name ?? 'They'} is now verified` : 'Verified badge removed')
+    } catch (e) {
+      toast(errorMessage(e), 'error')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -129,6 +145,7 @@ export default function AdminMembers() {
                       <span className="min-w-0">
                         <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-text-primary">
                           {m.name ?? 'No name yet'}
+                          <VerifiedBadge show={m.is_verified} size={14} />
                           {m.is_admin && <ShieldCheck size={14} className="shrink-0 text-accent" aria-label="Admin" />}
                         </span>
                         <span className="block truncate text-xs text-text-secondary">{m.email}</span>
@@ -178,6 +195,7 @@ export default function AdminMembers() {
                 <p className="truncate text-sm text-text-secondary">{open.email}</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {open.is_admin && <Badge tone="accent">Admin</Badge>}
+                  {open.is_verified && <Badge tone="accent">Verified</Badge>}
                   {open.onboarded_at ? <Badge tone="success">Onboarded</Badge> : <Badge tone="warning">Not onboarded</Badge>}
                 </div>
               </div>
@@ -195,6 +213,9 @@ export default function AdminMembers() {
               <Detail label="Last sign-in" value={open.last_sign_in_at ? timeAgo(open.last_sign_in_at) : null} />
               <Detail label="Last active" value={open.last_seen_at ? lastActiveLabel(open.last_seen_at) : null} />
             </div>
+            <Button variant="secondary" fullWidth className="mt-4" icon={<BadgeCheck size={16} />} loading={busy} onClick={() => toggleVerified(open)}>
+              {open.is_verified ? 'Remove verified badge' : 'Give verified badge'}
+            </Button>
             <Link to="/admin/admins" className="mt-3 block text-xs text-text-muted hover:text-text-secondary">
               Manage all admins →
             </Link>

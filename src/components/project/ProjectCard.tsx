@@ -29,6 +29,7 @@ import { STAGES, STAGE_STYLES, labelFor } from '../../lib/constants'
 import type { ProjectCard as ProjectCardData } from '../../services/projects.service'
 import { ProgressBar } from '../ui/ProgressBar'
 import { GithubIcon } from '../ui/GithubIcon'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   'AI & ML': Brain,
@@ -147,6 +148,7 @@ export function ProjectCard({ project, saved, onToggleSave, matchedOn }: Project
                 ) : (
                   <>
                     <span className="truncate">by {project.owner?.name ?? 'a builder'}</span>
+                    <VerifiedBadge show={project.owner?.is_verified} size={13} />
                     <span className="text-text-muted">·</span>
                     <span className="shrink-0">{timeAgo(project.created_at)}</span>
                   </>

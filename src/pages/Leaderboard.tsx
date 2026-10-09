@@ -12,6 +12,7 @@ import { Avatar } from '../components/ui/Avatar'
 import { Card } from '../components/ui/Card'
 import { EmptyState, ErrorState, ListSkeleton } from '../components/ui/States'
 import { Podium } from '../components/widgets'
+import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 const XP_RULES = [
   ['Post a project', '+40'],
@@ -68,7 +69,11 @@ export default function Leaderboard() {
                   <Avatar name={r.name} src={r.avatar_url} size="md" seed={r.user_id} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-text-primary">
-                      {r.name} {r.user_id === user?.id && <span className="text-xs font-medium text-accent">(you)</span>}
+                      <span className="inline-flex max-w-full items-center gap-1 align-middle">
+                        <span className="truncate">{r.name}</span>
+                        <VerifiedBadge show={r.is_verified} size={15} />
+                      </span>{' '}
+                      {r.user_id === user?.id && <span className="text-xs font-medium text-accent">(you)</span>}
                     </span>
                     <span className="block truncate text-[13px] text-text-secondary">
                       {r.primary_role ?? 'Builder'} · {r.projects} projects · {r.steps} steps
