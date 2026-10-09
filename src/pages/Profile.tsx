@@ -24,7 +24,7 @@ import { cn } from '../lib/cn'
 import { errorMessage } from '../lib/errors'
 import { formatDate, lastActiveLabel } from '../lib/format'
 import { EXPERIENCE, labelFor } from '../lib/constants'
-import { getProfile, getSkillsForUser } from '../services/profiles.service'
+import { getProfile, getProfileIdByUsername, getSkillsForUser } from '../services/profiles.service'
 import { achievementsFor, getUserStats, levelProgress } from '../services/stats.service'
 import { listMyProjects } from '../services/projects.service'
 import { startConversation } from '../services/conversations.service'
@@ -59,7 +59,7 @@ function MenuLink({ to, icon: Icon, label, onClick, danger }: { to?: string; ico
   )
 }
 
-export default function Profile() {
+function ProfileView() {
   const params = useParams()
   const { user, profile: me, isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
@@ -266,4 +266,19 @@ export default function Profile() {
       )}
     </div>
   )
+}
+
+/** /u/@handle (from @mentions) resolves to /u/<id>; everything else renders the profile. */
+function HandleRedirect({ handle }: { handle: string }) {
+  const { data, loading, error, reload } = useAsync(() => getProfileIdByUsername(handle), [handle])
+  if (loading) return <ListSkeleton rows={2} />
+  if (error) return <ErrorState message={error} onRetry={reload} />
+  if (!data) return <EmptyState title={`No builder called @${handle}`} body="They may have changed their username." action={<ButtonLink to="/people">Find people</ButtonLink>} />
+  return <Navigate to={`/u/${data}`} replace />
+}
+
+export default function Profile() {
+  const { id } = useParams()
+  if (id?.startsWith('@')) return <HandleRedirect handle={id.slice(1)} />
+  return <ProfileView key={id ?? 'me'} />
 }

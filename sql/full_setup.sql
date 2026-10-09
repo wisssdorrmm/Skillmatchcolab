@@ -416,6 +416,7 @@ on conflict do nothing;
 -- Verified badge: only admins can give or remove it.
 -- ---------------------------------------------------------------------
 alter table public.profiles add column if not exists is_verified boolean not null default false;
+alter table public.profiles add column if not exists is_official boolean not null default false;
 
 create or replace function public.cb_profiles_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -423,8 +424,10 @@ begin
   if auth.uid() is not null and not public.is_admin() then
     if tg_op = 'INSERT' then
       new.is_verified := false;
+      new.is_official := false;
     else
       new.is_verified := old.is_verified;
+      new.is_official := old.is_official;
     end if;
   end if;
   return new;
@@ -1033,19 +1036,37 @@ create policy "cb: own room reads" on public.community_room_reads for all to aut
 
 create or replace function public.cb_on_community_message()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare parent_author uuid; room_name text; room_slug text;
+declare
+  parent_author uuid;
+  room_name text;
+  room_slug text;
+  author_name text;
+  author_official boolean;
 begin
   perform public.cb_mark_active(new.user_id);
+  select name, slug into room_name, room_slug from public.community_rooms where id = new.room_id;
+  select coalesce(name, 'Someone'), is_official into author_name, author_official from public.profiles where id = new.user_id;
+
   if new.reply_to is not null then
     select user_id into parent_author from public.community_messages where id = new.reply_to;
-    select name, slug into room_name, room_slug from public.community_rooms where id = new.room_id;
     if parent_author is not null and parent_author <> new.user_id then
       insert into public.notifications (user_id, type, title, body, link)
-      values (parent_author, 'community_reply',
-              coalesce((select name from public.profiles where id = new.user_id), 'Someone') || ' replied in #' || room_name,
+      values (parent_author, 'community_reply', author_name || ' replied in #' || room_name,
               left(new.body, 140), '/community/' || room_slug);
     end if;
   end if;
+
+  -- Tag people with @username (up to 5 per post).
+  insert into public.notifications (user_id, type, title, body, link)
+  select pr.id, 'mention',
+         case when author_official and new.body ilike 'welcome%' then author_name || ' welcomed you in #' || room_name
+              else author_name || ' mentioned you in #' || room_name end,
+         left(new.body, 140), '/community/' || room_slug
+  from (select distinct lower(m[1]) as handle
+        from regexp_matches(new.body, '@([A-Za-z0-9_]{3,20})', 'g') as m limit 5) h
+  join public.profiles pr on lower(pr.username) = h.handle
+  where pr.id <> new.user_id
+    and pr.id is distinct from parent_author;
   return new;
 end $$;
 
@@ -1094,6 +1115,61 @@ insert into public.community_rooms (slug, name, description, category, is_locked
   ('web3', 'web3', 'Smart contracts, wallets and onchain apps.', 'Stacks', false, 34),
   ('design', 'design', 'UI, UX, product design and Figma.', 'Stacks', false, 35)
 on conflict (slug) do nothing;
+
+
+-- Who has already been welcomed (so nobody is greeted twice).
+create table if not exists public.cb_welcomed (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  welcomed_at timestamptz not null default now()
+);
+alter table public.cb_welcomed enable row level security;
+
+-- The official account greets a builder in #general, tagging their @username.
+create or replace function public.cb_post_welcome(p_user uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  official uuid;
+  room uuid;
+  p record;
+  who text;
+  intro text;
+begin
+  select id into official from public.profiles where is_official order by created_at limit 1;
+  if official is null or official = p_user then return; end if;
+  select id into room from public.community_rooms where slug = 'general';
+  if room is null then return; end if;
+  select name, username, primary_role, country into p from public.profiles where id = p_user;
+  if p.name is null then return; end if;
+
+  insert into public.cb_welcomed (user_id) values (p_user) on conflict do nothing;
+  if not found then return; end if;  -- already welcomed
+
+  who := coalesce('@' || p.username, p.name);
+  intro := p.name
+        || case when p.primary_role is not null then ' just joined as a ' || p.primary_role else ' just joined' end
+        || case when p.country is not null then ' from ' || p.country else '' end || '.';
+  insert into public.community_messages (room_id, user_id, body) values (room, official,
+    'Welcome to Cobuild, ' || who || '! 👋' || chr(10) || chr(10) ||
+    intro || ' Say hi and tell them what you''re building.' || chr(10) || chr(10) ||
+    who || ', a great first step: introduce yourself in #introductions, then post your project with the + button or join one in Explore.');
+end $$;
+
+create or replace function public.cb_on_profile_onboarded()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.onboarded_at is not null and (tg_op = 'INSERT' or old.onboarded_at is null) and not new.is_official then
+    begin
+      perform public.cb_post_welcome(new.id);
+    exception when others then
+      raise warning 'Welcome post skipped: %', sqlerrm;  -- never block someone's onboarding
+    end;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists cb_on_profile_onboarded on public.profiles;
+create trigger cb_on_profile_onboarded after insert or update of onboarded_at on public.profiles
+  for each row execute function public.cb_on_profile_onboarded();
 
 
 -- =====================================================================
@@ -1406,7 +1482,7 @@ language sql stable security definer set search_path = public as $$
                             when 'month' then now() - interval '30 days'
                             else '-infinity'::timestamptz end) x
   join public.profiles p on p.id = x.user_id
-  where x.xp > 0 and p.name is not null
+  where x.xp > 0 and p.name is not null and not p.is_official
   order by x.xp desc, p.created_at asc
   limit greatest(1, least(coalesce(p_limit, 20), 100));
 $$;
@@ -1786,7 +1862,7 @@ begin
     select p.oid::regprocedure as sig
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in ('cb_mark_active', 'cb_xp_table', 'cb_streak', 'cb_require_admin', 'cb_validate_project', 'cb_clean_url')
+      and p.proname in ('cb_mark_active', 'cb_xp_table', 'cb_streak', 'cb_require_admin', 'cb_validate_project', 'cb_clean_url', 'cb_post_welcome')
   loop
     execute format('revoke all on function %s from public, anon, authenticated', f.sig);
   end loop;

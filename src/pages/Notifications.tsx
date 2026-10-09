@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Bell, CheckCheck, Flame, HandCoins, Megaphone, MessageCircle, Rocket, ShieldCheck, Sparkles, UserCheck, UserPlus, type LucideIcon } from 'lucide-react'
+import { AtSign, BadgeCheck, Bell, CheckCheck, Flame, HandCoins, Megaphone, MessageCircle, Rocket, ShieldCheck, Sparkles, UserCheck, UserPlus, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useUnread } from '../context/UnreadContext'
 import { useAsync } from '../hooks/useAsync'
@@ -23,6 +23,8 @@ const ICONS: Record<string, { icon: LucideIcon; tone: string }> = {
   funding_new: { icon: HandCoins, tone: 'bg-accent/15 text-accent' },
   admin_granted: { icon: ShieldCheck, tone: 'bg-accent/15 text-accent' },
   broadcast: { icon: Megaphone, tone: 'bg-info/15 text-info' },
+  mention: { icon: AtSign, tone: 'bg-accent/15 text-accent' },
+  verified: { icon: BadgeCheck, tone: 'bg-accent/15 text-accent' },
 }
 
 export default function Notifications() {

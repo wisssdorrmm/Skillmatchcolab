@@ -1,12 +1,19 @@
 import { supabase } from '../lib/supabase'
 import type { Profile, Skill } from '../types/database'
 
-export const PROFILE_LITE = 'id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified'
+export const PROFILE_LITE = 'id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified, is_official'
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
   if (error) throw error
   return data as Profile | null
+}
+
+/** Profile id for an @username (usernames are stored lowercase). */
+export async function getProfileIdByUsername(username: string): Promise<string | null> {
+  const { data, error } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase()).maybeSingle()
+  if (error) throw error
+  return (data?.id as string | undefined) ?? null
 }
 
 export async function updateProfile(userId: string, updates: Partial<Profile>) {

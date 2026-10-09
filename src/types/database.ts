@@ -25,10 +25,11 @@ export interface Profile {
   last_seen_at: string | null
   show_online: boolean
   is_verified: boolean
+  is_official: boolean
 }
 
 export type ProfileLite = Pick<Profile, 'id' | 'name' | 'avatar_url'> &
-  Partial<Pick<Profile, 'username' | 'primary_role' | 'last_seen_at' | 'show_online' | 'is_verified'>>
+  Partial<Pick<Profile, 'username' | 'primary_role' | 'last_seen_at' | 'show_online' | 'is_verified' | 'is_official'>>
 
 export interface Skill {
   id: number

@@ -26,6 +26,7 @@ import { ChatHeader, ChatScreen, Composer, DaySeparator } from '../components/ch
 import { useStickToBottom, withDays } from '../components/chat/chatUtils'
 import { useUnread } from '../context/UnreadContext'
 import { VerifiedBadge } from '../components/ui/VerifiedBadge'
+import { RichText } from '../components/ui/RichText'
 
 export default function CommunityRoom() {
   const { slug = '' } = useParams()
@@ -245,6 +246,9 @@ function MessageRow({
             {m.author?.name ?? 'Builder'}
           </Link>
           <VerifiedBadge show={m.author?.is_verified} size={15} className="self-center" />
+          {m.author?.is_official && (
+            <span className="self-center rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">Official</span>
+          )}
           {isAdminAuthor && <ShieldCheck size={14} className="shrink-0 text-accent" aria-label="Admin" />}
           <span className="shrink-0 text-xs text-text-muted">{formatTime(m.created_at)}</span>
         </div>
@@ -253,7 +257,9 @@ function MessageRow({
             <span className="font-semibold">{m.reply.author?.name ?? 'Someone'}</span>: <span className="line-clamp-1">{m.reply.body}</span>
           </div>
         )}
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-text-primary">{m.body}</p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-text-primary">
+          <RichText text={m.body} />
+        </p>
         <div className="mt-1.5 flex items-center gap-1 text-xs">
           <button
             onClick={onLike}

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { CommunityMessage, CommunityRoom } from '../types/database'
 
 const MESSAGE_SELECT =
-  '*, author:profiles!user_id(id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified), likes:community_message_likes(user_id), reply:reply_to(id, body, author:profiles!user_id(name))'
+  '*, author:profiles!user_id(id, name, avatar_url, username, primary_role, last_seen_at, show_online, is_verified, is_official), likes:community_message_likes(user_id), reply:reply_to(id, body, author:profiles!user_id(name))'
 
 export async function listRooms(): Promise<CommunityRoom[]> {
   const { data, error } = await supabase.rpc('list_rooms')
