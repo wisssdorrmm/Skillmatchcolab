@@ -1,34 +1,100 @@
 @import "tailwindcss";
+@import "@fontsource-variable/plus-jakarta-sans";
 
 @theme {
-  /* Backgrounds */
-  --color-bg: #0B0F1A;
-  --color-surface: #131A2B;
-  --color-surface-hover: #1A2338;
-  --color-border: #232B3D;
+  /* Surfaces */
+  --color-bg: #0c0c0e;
+  --color-sidebar: #0f0f12;
+  --color-surface: #17171a;
+  --color-surface-2: #1e1e22;
+  --color-surface-hover: #232328;
+  --color-border: #26262c;
+  --color-border-strong: #34343c;
 
-  /* Accent (matches the FlutterFlow blue) */
-  --color-accent: #3B82F6;
-  --color-accent-hover: #2563EB;
+  /* Brand accent (lime) */
+  --color-accent: #d4f75c;
+  --color-accent-hover: #c6ec48;
+  --color-accent-ink: #12150a;
 
   /* Text */
-  --color-text-primary: #F5F7FA;
-  --color-text-secondary: #9AA4B8;
-  --color-text-muted: #626D82;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
 
   /* Status */
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+  --color-gold: #fcd34d;
+  --color-silver: #d4d4d8;
+  --color-bronze: #f59e6b;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-html, body, #root {
-  height: 100%;
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Keyboard focus that's visible on dark surfaces */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Hide scrollbars on horizontal chip rows but keep them scrollable */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Thin, quiet scrollbars elsewhere on desktop */
+@media (min-width: 1024px) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+}
+
+@keyframes cb-pop {
+  0% { transform: scale(0.96); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: cb-pop 160ms ease-out;
+}
+
+@keyframes cb-slide-up {
+  0% { transform: translateY(16px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: cb-slide-up 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

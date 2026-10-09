@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { MailCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { errorMessage } from '../lib/errors'
+import { AuthLayout } from '../components/layout/AuthLayout'
+import { Button } from '../components/ui/Button'
+import { Field, Input } from '../components/ui/Field'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -12,54 +17,37 @@ export default function ForgotPassword() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
     })
     setLoading(false)
-    if (error) {
-      setError(error.message)
-      return
-    }
+    if (error) return setError(errorMessage(error))
     setSent(true)
   }
 
   return (
-    <div className="flex h-screen flex-col justify-center bg-bg px-6">
-      <div className="mx-auto w-full max-w-sm">
-        <h1 className="mb-1 text-2xl font-semibold text-text-primary">Reset password</h1>
-        <p className="mb-8 text-sm text-text-secondary">
-          We'll email you a link to reset your password.
-        </p>
-
-        {sent ? (
-          <p className="text-sm text-success">Check your inbox for a reset link.</p>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input
-              type="email"
-              required
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-            />
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 rounded-lg bg-accent py-3 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-            >
-              {loading ? 'Sending…' : 'Send reset link'}
-            </button>
-          </form>
-        )}
-
-        <p className="mt-8 text-center text-sm text-text-secondary">
-          <Link to="/login" className="font-medium text-accent hover:underline">
-            Back to log in
-          </Link>
-        </p>
-      </div>
-    </div>
+    <AuthLayout title="Reset your password" subtitle="We'll email you a link to choose a new one.">
+      {sent ? (
+        <div className="flex flex-col items-center rounded-2xl border border-border bg-surface p-6 text-center">
+          <MailCheck size={28} className="text-accent" />
+          <p className="mt-3 text-sm text-text-secondary">If an account exists for {email.trim()}, a reset link is on its way.</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Email">
+            {(id) => (
+              <Input id={id} type="email" required autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            )}
+          </Field>
+          {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">{error}</p>}
+          <Button type="submit" size="lg" loading={loading} fullWidth>
+            Send reset link
+          </Button>
+        </form>
+      )}
+      <Link to="/login" className="mt-8 block text-center text-sm font-semibold text-accent hover:underline">
+        Back to log in
+      </Link>
+    </AuthLayout>
   )
 }

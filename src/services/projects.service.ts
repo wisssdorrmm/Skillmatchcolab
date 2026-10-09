@@ -1,104 +1,192 @@
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import type { Project, ProjectRoleNeeded, ProjectStatus } from '../types/database'
+import type { Milestone, Project, ProjectRoleNeeded, ProfileLite } from '../types/database'
+import { safeSearchTerm } from './profiles.service'
 
 export interface ProjectCard extends Project {
-  owner: { id: string; name: string | null; avatar_url: string | null } | null
-  project_roles_needed: ProjectRoleNeeded[]
+  owner: Pick<ProfileLite, 'id' | 'name' | 'avatar_url' | 'username'> | null
+  project_roles_needed: Pick<ProjectRoleNeeded, 'id' | 'role_name'>[]
   project_members: { count: number }[]
+  project_upvotes: { count: number }[]
 }
 
-// PostgREST's .or() filter parses commas, parentheses, and periods as
-// syntax (to separate conditions and specify operators). Raw user input
-// containing those characters can manipulate the filter logic in ways
-// that weren't intended, or throw errors. % and _ also have meaning as
-// ilike wildcards. This escapes all of that before building the filter.
-function escapeForOrFilter(term: string): string {
-  return term
-    .replace(/[,()]/g, '') // strip filter-syntax delimiters entirely
-    .replace(/[%_]/g, (c) => `\\${c}`) // escape ilike wildcards
-    .slice(0, 200) // guard against pathologically long input
+export interface ProjectMemberRow {
+  user_id: string
+  role: string | null
+  joined_at: string
+  profile: ProfileLite | null
 }
 
-export async function listProjects(searchTerm = ''): Promise<ProjectCard[]> {
-  let query = supabase
-    .from('projects')
-    .select(
-      '*, owner:profiles!owner_id(id, name, avatar_url), project_roles_needed(*), project_members(count)'
-    )
-    .order('created_at', { ascending: false })
+export interface ProjectDetail extends Project {
+  owner: ProfileLite | null
+  project_roles_needed: Pick<ProjectRoleNeeded, 'id' | 'role_name'>[]
+  project_members: ProjectMemberRow[]
+  project_milestones: Milestone[]
+}
 
-  const trimmed = searchTerm.trim()
-  if (trimmed) {
-    const safe = escapeForOrFilter(trimmed)
-    query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`)
-  }
+const CARD_SELECT =
+  '*, owner:profiles!owner_id(id, name, avatar_url, username), project_roles_needed(id, role_name), project_members(count), project_upvotes(count)'
 
-  const { data, error } = await query
+export type ProjectSort = 'newest' | 'progress' | 'stars' | 'updated'
+
+export interface ProjectFilters {
+  search?: string
+  source?: 'community' | 'github'
+  category?: string
+  sort?: ProjectSort
+  limit?: number
+  offset?: number
+  onlyOpen?: boolean
+}
+
+export async function listProjects({ search = '', source, category, sort = 'newest', limit = 24, offset = 0, onlyOpen }: ProjectFilters = {}) {
+  let query = supabase.from('projects').select(CARD_SELECT, { count: 'exact' })
+  if (source) query = query.eq('source', source)
+  if (category) query = query.eq('category', category)
+  if (onlyOpen) query = query.neq('status', 'closed')
+  const q = safeSearchTerm(search)
+  if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%,tagline.ilike.%${q}%,external_owner.ilike.%${q}%`)
+
+  if (sort === 'progress') query = query.order('progress', { ascending: false }).order('updated_at', { ascending: false })
+  else if (sort === 'stars') query = query.order('external_stars', { ascending: false, nullsFirst: false })
+  else if (sort === 'updated') query = query.order('updated_at', { ascending: false })
+  else query = query.order('is_featured', { ascending: false }).order('created_at', { ascending: false })
+
+  const { data, error, count } = await query.range(offset, offset + limit - 1)
+  if (error) throw error
+  return { items: (data ?? []) as unknown as ProjectCard[], total: count ?? 0 }
+}
+
+export async function listProjectsByIds(ids: string[]): Promise<ProjectCard[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase.from('projects').select(CARD_SELECT).in('id', ids)
   if (error) throw error
   return (data ?? []) as unknown as ProjectCard[]
 }
 
-export async function getProjectById(id: string) {
+export async function getProject(id: string): Promise<ProjectDetail | null> {
   const { data, error } = await supabase
     .from('projects')
     .select(
-      '*, owner:profiles!owner_id(id, name, avatar_url, primary_role), project_roles_needed(*), project_members(user_id, role, joined_at, profiles(id, name, avatar_url))'
+      '*, owner:profiles!owner_id(id, name, avatar_url, username, primary_role, last_seen_at, show_online), project_roles_needed(id, role_name), project_members(user_id, role, joined_at, profile:profiles(id, name, avatar_url, username, primary_role, last_seen_at, show_online)), project_milestones(*)',
     )
     .eq('id', id)
+    .order('position', { referencedTable: 'project_milestones', ascending: true })
     .maybeSingle()
   if (error) throw error
-  return data
+  return data as unknown as ProjectDetail | null
 }
 
-export async function createProject(params: {
-  ownerId: string
+export interface MilestoneInput {
+  id?: string
   title: string
+  weight: number
+  description?: string
+}
+
+export interface ProjectInput {
+  title: string
+  tagline: string
   description: string
-  status: ProjectStatus
+  category: string
+  stage: string
+  status: string
+  tech_stack: string[]
   roles: string[]
-}) {
-  const { ownerId, title, description, status, roles } = params
+  repo_url: string
+  demo_url: string
+  milestones: MilestoneInput[]
+}
 
-  const { data: project, error } = await supabase
-    .from('projects')
-    .insert({ owner_id: ownerId, title, description, status })
-    .select()
-    .single()
+export async function createProject(input: ProjectInput): Promise<string> {
+  const { data, error } = await supabase.rpc('create_project', { p: input })
   if (error) throw error
+  return data as string
+}
 
-  if (roles.length > 0) {
-    const { error: rolesErr } = await supabase
-      .from('project_roles_needed')
-      .insert(roles.map((role_name) => ({ project_id: project.id, role_name })))
-    if (rolesErr) throw rolesErr
+export async function updateProject(id: string, input: ProjectInput) {
+  const { error } = await supabase.rpc('update_project', { p_id: id, p: input })
+  if (error) throw error
+}
+
+export async function deleteProject(id: string) {
+  const { error } = await supabase.rpc('delete_project', { p_id: id })
+  if (error) throw error
+}
+
+export async function setMilestoneDone(milestoneId: string, done: boolean): Promise<number> {
+  const { data, error } = await supabase.rpc('set_milestone_done', { p_milestone_id: milestoneId, p_done: done })
+  if (error) throw error
+  return data as number
+}
+
+/** Projects I own plus projects I've joined, newest activity first. */
+export async function listMyProjects(userId: string): Promise<{ owned: ProjectCard[]; joined: ProjectCard[] }> {
+  const { data: memberRows, error: mErr } = await supabase.from('project_members').select('project_id').eq('user_id', userId)
+  if (mErr) throw mErr
+  const memberIds = (memberRows ?? []).map((r) => r.project_id as string)
+
+  const [{ data: owned, error: oErr }, joinedAll] = await Promise.all([
+    supabase.from('projects').select(CARD_SELECT).eq('owner_id', userId).order('updated_at', { ascending: false }),
+    listProjectsByIds(memberIds),
+  ])
+  if (oErr) throw oErr
+  return {
+    owned: (owned ?? []) as unknown as ProjectCard[],
+    joined: joinedAll.filter((p) => p.owner_id !== userId).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
   }
-
-  // Owner is automatically a member of their own project.
-  const { error: memberErr } = await supabase
-    .from('project_members')
-    .insert({ project_id: project.id, user_id: ownerId, role: 'Owner' })
-  if (memberErr) throw memberErr
-
-  return project as Project
 }
 
-export async function listMyCreatedProjects(userId: string): Promise<Project[]> {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('owner_id', userId)
-    .order('created_at', { ascending: false })
+export async function hasUpvoted(projectId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('project_upvotes').select('user_id').eq('project_id', projectId).eq('user_id', userId).maybeSingle()
   if (error) throw error
-  return data ?? []
+  return !!data
 }
 
-export async function listMyJoinedProjects(userId: string): Promise<Project[]> {
-  const { data, error } = await supabase
-    .from('project_members')
-    .select('projects(*)')
-    .eq('user_id', userId)
+export async function countUpvotes(projectId: string): Promise<number> {
+  const { count, error } = await supabase.from('project_upvotes').select('user_id', { count: 'exact', head: true }).eq('project_id', projectId)
   if (error) throw error
-  return (data ?? [])
-    .flatMap((r: any) => (r.projects ? [r.projects as Project] : []))
-    .filter((p) => p.owner_id !== userId) // "Joined" excludes projects the user owns
+  return count ?? 0
+}
+
+export async function setUpvote(projectId: string, userId: string, on: boolean) {
+  if (on) {
+    const { error } = await supabase.from('project_upvotes').insert({ project_id: projectId, user_id: userId })
+    if (error && error.code !== '23505') throw error
+  } else {
+    const { error } = await supabase.from('project_upvotes').delete().eq('project_id', projectId).eq('user_id', userId)
+    if (error) throw error
+  }
+}
+
+export interface ShipItem {
+  id: string
+  title: string
+  weight: number
+  done_at: string
+  project: { id: string; title: string; progress: number } | null
+  doer: { id: string; name: string | null; avatar_url: string | null } | null
+}
+
+/** Latest roadmap steps finished anywhere on the platform. */
+export async function listRecentShips(limit = 8): Promise<ShipItem[]> {
+  const { data, error } = await supabase
+    .from('project_milestones')
+    .select('id, title, weight, done_at, project:projects(id, title, progress), doer:profiles!done_by(id, name, avatar_url)')
+    .eq('is_done', true)
+    .order('done_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as unknown as ShipItem[]
+}
+
+export function subscribeToMilestones(projectId: string, onChange: () => void): RealtimeChannel {
+  return supabase
+    .channel(`milestones:${projectId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'project_milestones', filter: `project_id=eq.${projectId}` }, () => onChange())
+    .subscribe()
+}
+
+export function githubContributeUrl(repoUrl: string): string {
+  return `${repoUrl.replace(/\/$/, '')}/contribute`
 }

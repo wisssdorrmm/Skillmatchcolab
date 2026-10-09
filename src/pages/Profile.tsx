@@ -1,296 +1,264 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { LogOut, Pencil, Check, X, Camera, Briefcase, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import {
+  Award,
+  Bookmark,
+  ChevronRight,
+  Flame,
+  FolderKanban,
+  Globe,
+  HandCoins,
+  Lock,
+  LogOut,
+  MapPin,
+  MessageCircle,
+  Pencil,
+  Settings,
+  ShieldCheck,
+  Trophy,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { getSkillsForUser, getUserSkillIds, setUserSkills, updateProfile } from '../services/profiles.service'
-import { getAllSkills } from '../services/skills.service'
-import { uploadAvatar } from '../services/storage.service'
-import type { Skill } from '../types/database'
+import { useAsync } from '../hooks/useAsync'
+import { cn } from '../lib/cn'
+import { errorMessage } from '../lib/errors'
+import { formatDate, lastActiveLabel } from '../lib/format'
+import { EXPERIENCE, labelFor } from '../lib/constants'
+import { getProfile, getSkillsForUser } from '../services/profiles.service'
+import { achievementsFor, getUserStats, levelProgress } from '../services/stats.service'
+import { listMyProjects } from '../services/projects.service'
+import { startConversation } from '../services/conversations.service'
+import { Avatar } from '../components/ui/Avatar'
+import { Button, ButtonLink } from '../components/ui/Button'
+import { Card, Section } from '../components/ui/Card'
+import { ProgressBar } from '../components/ui/ProgressBar'
+import { Tag } from '../components/ui/Badge'
+import { EmptyState, ErrorState, ListSkeleton, Skeleton } from '../components/ui/States'
+import { useToast } from '../components/ui/Toast'
+import { GithubIcon } from '../components/ui/GithubIcon'
+import { ProjectCard } from '../components/project/ProjectCard'
 
-export default function Profile() {
-  const { user, profile, refreshProfile, signOut } = useAuth()
-  const navigate = useNavigate()
-
-  const [skills, setSkills] = useState<Skill[]>([])
-  const [editing, setEditing] = useState(false)
-
-  const [name, setName] = useState('')
-  const [primaryRole, setPrimaryRole] = useState('')
-  const [bio, setBio] = useState('')
-  const [goal, setGoal] = useState('')
-  const [allSkills, setAllSkills] = useState<Skill[]>([])
-  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<number>>(new Set())
-  const [saving, setSaving] = useState(false)
-
-  const [avatarUrl, setAvatarUrl] = useState('')
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setAvatarFile(file)
-    setAvatarPreview(URL.createObjectURL(file))
-  }
-
-  useEffect(() => {
-    if (!user) return
-    getSkillsForUser(user.id).then(setSkills)
-  }, [user])
-
-  const startEditing = async () => {
-    if (!user || !profile) return
-    setName(profile.name ?? '')
-    setPrimaryRole(profile.primary_role ?? '')
-    setBio(profile.bio ?? '')
-    setGoal(profile.goal ?? '')
-    setAvatarUrl(profile.avatar_url ?? '')
-    setAvatarPreview(null)
-    setAvatarFile(null)
-    const [all, mine] = await Promise.all([getAllSkills(), getUserSkillIds(user.id)])
-    setAllSkills(all)
-    setSelectedSkillIds(new Set(mine))
-    setEditing(true)
-  }
-
-  const toggleSkill = (id: number) => {
-    setSelectedSkillIds((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  const handleSave = async () => {
-    if (!user) return
-    setSaving(true)
-    try {
-      let finalAvatarUrl = avatarUrl
-      if (avatarFile) {
-        setUploadingAvatar(true)
-        finalAvatarUrl = await uploadAvatar(user.id, avatarFile)
-        setUploadingAvatar(false)
-      }
-
-      await updateProfile(user.id, {
-        name: name.trim(),
-        primary_role: primaryRole.trim(),
-        bio: bio.trim(),
-        goal: goal.trim(),
-        avatar_url: finalAvatarUrl || null,
-      })
-      await setUserSkills(user.id, Array.from(selectedSkillIds))
-      await refreshProfile()
-      const updatedSkills = await getSkillsForUser(user.id)
-      setSkills(updatedSkills)
-      setEditing(false)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (!profile) return null
-
-  if (editing) {
-    return (
-      <div className="mx-auto max-w-md px-5 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-text-primary">Edit Profile</h1>
-          <div className="flex gap-2">
-            <button onClick={() => setEditing(false)} className="text-text-muted hover:text-text-secondary">
-              <X size={20} />
-            </button>
-            <button onClick={handleSave} disabled={saving} className="text-accent hover:text-accent-hover disabled:opacity-50">
-              <Check size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border bg-surface text-text-muted transition-colors hover:border-accent"
-            >
-              {avatarPreview || avatarUrl ? (
-                <img src={avatarPreview ?? avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
-              ) : (
-                <Camera size={22} />
-              )}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="hidden"
-            />
-            <span className="text-xs text-text-muted">
-              {uploadingAvatar ? 'Uploading…' : 'Tap to change photo'}
-            </span>
-          </div>
-
-          <Field label="Name" value={name} onChange={setName} />
-          <Field label="Primary role" value={primaryRole} onChange={setPrimaryRole} />
-          <Field label="Bio" value={bio} onChange={setBio} textarea />
-          <Field label="Goal" value={goal} onChange={setGoal} />
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Skills</label>
-            <div className="flex flex-wrap gap-2">
-              {allSkills.map((skill) => {
-                const isSelected = selectedSkillIds.has(skill.id)
-                return (
-                  <button
-                    key={skill.id}
-                    type="button"
-                    onClick={() => toggleSkill(skill.id)}
-                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                      isSelected
-                        ? 'border-accent bg-accent/15 text-accent'
-                        : 'border-border bg-surface text-text-secondary hover:border-text-muted'
-                    }`}
-                  >
-                    {skill.name}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="mx-auto max-w-md px-5 py-6">
-      <div className="mb-6 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-accent/20 text-lg font-medium text-accent">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.name ?? 'Avatar'} className="h-full w-full object-cover" />
-            ) : (
-              profile.name?.charAt(0)?.toUpperCase() ?? '?'
-            )}
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-text-primary">{profile.name}</h1>
-            <p className="text-sm text-text-secondary">{profile.primary_role}</p>
-          </div>
-        </div>
-        <button onClick={startEditing} className="text-text-muted hover:text-accent" aria-label="Edit profile">
-          <Pencil size={18} />
-        </button>
-      </div>
-
-      {profile.bio && <p className="mb-4 text-sm text-text-secondary">{profile.bio}</p>}
-
-      {profile.goal && (
-        <div className="mb-5 rounded-lg bg-surface p-3">
-          <p className="text-[11px] uppercase tracking-wide text-text-muted">Goal</p>
-          <p className="text-sm text-text-primary">{profile.goal}</p>
-        </div>
-      )}
-
-      {skills.length > 0 && (
-        <div className="mb-5">
-          <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-text-muted">Skills</h2>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((s) => (
-              <span key={s.id} className="rounded-full bg-accent/10 px-3 py-1 text-xs text-accent">
-                {s.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={() => navigate('/my-projects')}
-        className="mb-4 flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3.5 hover:border-accent/50"
-      >
-        <span className="flex items-center gap-2.5 text-sm text-text-primary">
-          <Briefcase size={17} className="text-accent" /> My Projects
-        </span>
-        <ChevronRight size={16} className="text-text-muted" />
-      </button>
-
-      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-surface">
-        <SettingsRow label="Terms of Service" onClick={() => navigate('/terms')} />
-        <SettingsRow label="Privacy Policy" onClick={() => navigate('/privacy')} />
-        <SettingsRow label="Help & Support" onClick={() => window.open('mailto:support@skillmatchhub.app')} />
-        <SettingsRow
-          label="Deactivate Account"
-          danger
-          onClick={() => navigate('/deactivate-account')}
-          last
-        />
-      </div>
-
-      <button
-        onClick={signOut}
-        className="flex items-center gap-2 text-sm text-danger hover:underline"
-      >
-        <LogOut size={16} /> Log out
-      </button>
-    </div>
+function MenuLink({ to, icon: Icon, label, onClick, danger }: { to?: string; icon: LucideIcon; label: string; onClick?: () => void; danger?: boolean }) {
+  const cls = cn('flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] font-medium hover:bg-surface-2/50', danger ? 'text-danger' : 'text-text-primary')
+  const body = (
+    <>
+      <Icon size={19} className={danger ? '' : 'text-text-secondary'} />
+      <span className="flex-1">{label}</span>
+      {!danger && <ChevronRight size={17} className="text-text-muted" />}
+    </>
   )
-}
-
-function SettingsRow({
-  label,
-  onClick,
-  danger,
-  last,
-}: {
-  label: string
-  onClick: () => void
-  danger?: boolean
-  last?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-sm hover:bg-surface-hover ${
-        !last ? 'border-b border-border' : ''
-      } ${danger ? 'text-danger' : 'text-text-primary'}`}
-    >
-      {label}
-      <ChevronRight size={16} className={danger ? 'text-danger' : 'text-text-muted'} />
+  return to ? (
+    <Link to={to} className={cls}>
+      {body}
+    </Link>
+  ) : (
+    <button onClick={onClick} className={cls}>
+      {body}
     </button>
   )
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  textarea,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  textarea?: boolean
-}) {
+export default function Profile() {
+  const params = useParams()
+  const { user, profile: me, isAdmin, signOut } = useAuth()
+  const navigate = useNavigate()
+  const toast = useToast()
+  const id = params.id ?? user?.id ?? ''
+  const isMe = id === user?.id
+  const [opening, setOpening] = useState(false)
+
+  const profile = useAsync(() => (isMe ? Promise.resolve(me) : getProfile(id)), [id, isMe, me])
+  const stats = useAsync(() => getUserStats(id), [id])
+  const skills = useAsync(() => getSkillsForUser(id), [id])
+  const projects = useAsync(() => listMyProjects(id), [id])
+
+  if (params.id && params.id === user?.id) return <Navigate to="/profile" replace />
+  if (profile.loading && !profile.data) return <ListSkeleton rows={3} />
+  if (profile.error) return <ErrorState message={profile.error} onRetry={profile.reload} />
+  const p = profile.data
+  if (!p) return <EmptyState title="Builder not found" action={<ButtonLink to="/people">Find people</ButtonLink>} />
+
+  const s = stats.data
+  const shipped = (projects.data?.owned ?? []).some((pr) => pr.progress >= 100)
+  const allProjects = [...(projects.data?.owned ?? []), ...(projects.data?.joined ?? [])]
+
+  const message = async () => {
+    setOpening(true)
+    try {
+      navigate(`/messages/${await startConversation(id)}`)
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+      setOpening(false)
+    }
+  }
+
+  const github = p.github_url
+  const x = p.x_handle
+
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-text-secondary">{label}</label>
-      {textarea ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={3}
-          className="w-full resize-none rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text-primary focus:border-accent focus:outline-none"
-        />
-      ) : (
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text-primary focus:border-accent focus:outline-none"
-        />
+      <Card className="overflow-hidden">
+        <div className="h-24 bg-gradient-to-br from-accent/25 via-accent/[0.06] to-transparent sm:h-28" />
+        <div className="-mt-12 px-5 pb-5 sm:px-6 sm:pb-6">
+          <div className="flex items-end justify-between gap-3">
+            <Avatar name={p.name} src={p.avatar_url} size="2xl" lastSeen={p.show_online ? p.last_seen_at : null} showStatus seed={p.id} className="rounded-full ring-4 ring-surface" />
+            <div className="flex gap-2 pb-1">
+              {isMe ? (
+                <ButtonLink to="/settings/profile" variant="secondary" size="sm" icon={<Pencil size={15} />}>
+                  Edit profile
+                </ButtonLink>
+              ) : (
+                <Button size="sm" icon={<MessageCircle size={15} />} loading={opening} onClick={message}>
+                  Message
+                </Button>
+              )}
+            </div>
+          </div>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">{p.name}</h1>
+          <p className="text-[15px] text-text-secondary">
+            {p.username ? `@${p.username} · ` : ''}
+            {p.primary_role ?? 'Builder'}
+            {p.experience_level ? ` · ${labelFor(EXPERIENCE, p.experience_level)}` : ''}
+          </p>
+          {p.bio && <p className="mt-3 text-[15px] leading-relaxed text-text-primary">{p.bio}</p>}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-text-secondary">
+            {p.country && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin size={14} /> {p.country}
+              </span>
+            )}
+            {github && (
+              <a href={github} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-text-primary">
+                <GithubIcon size={14} /> GitHub
+              </a>
+            )}
+            {x && (
+              <a href={`https://x.com/${x}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-text-primary">
+                𝕏 @{x}
+              </a>
+            )}
+            {p.website_url && (
+              <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-text-primary">
+                <Globe size={14} /> Website
+              </a>
+            )}
+            <span>Joined {formatDate(p.created_at)}</span>
+            {!isMe && p.show_online && <span>{lastActiveLabel(p.last_seen_at)}</span>}
+          </div>
+        </div>
+      </Card>
+
+      {/* Level + streak */}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Card className="p-5">
+          {s ? (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-text-secondary">Level</p>
+                <p className="text-sm font-semibold text-accent">{s.xp > 0 ? `#${s.rank} all time` : 'Unranked'}</p>
+              </div>
+              <p className="mt-1 text-3xl font-bold text-text-primary">{s.level}</p>
+              <ProgressBar value={levelProgress(s)} className="mt-3" label="Level progress" />
+              <p className="mt-2 text-xs text-text-secondary">
+                {s.xp} XP · {s.next_level_xp - s.xp} XP to level {s.level + 1}
+              </p>
+            </>
+          ) : (
+            <Skeleton className="h-24" />
+          )}
+        </Card>
+        <Card className="p-5">
+          {s ? (
+            <>
+              <p className="text-sm text-text-secondary">Streak</p>
+              <p className="mt-1 flex items-center gap-2 text-3xl font-bold text-text-primary">
+                {s.current_streak} <Flame size={24} className={s.current_streak ? 'text-warning' : 'text-text-muted'} />
+              </p>
+              <p className="mt-3 text-xs text-text-secondary">
+                Best {s.best_streak} {s.best_streak === 1 ? 'day' : 'days'} · {s.active_days} active days
+              </p>
+            </>
+          ) : (
+            <Skeleton className="h-24" />
+          )}
+        </Card>
+      </div>
+
+      {s && (
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {[
+            ['Projects', s.projects],
+            ['Steps', s.steps],
+            ['Teams', s.teams],
+            ['Posts', s.posts],
+            ['Hypes', s.hypes],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-2xl border border-border bg-surface p-3 text-center">
+              <p className="text-xl font-bold text-text-primary">{value}</p>
+              <p className="text-xs text-text-secondary">{label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {s && (
+        <Section title="Achievements">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {achievementsFor(s, shipped).map((a) => (
+              <div key={a.key} className={cn('flex items-center gap-3 rounded-2xl border p-3', a.earned ? 'border-accent/30 bg-accent/[0.06]' : 'border-border bg-surface opacity-60')}>
+                <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', a.earned ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-text-muted')}>
+                  {a.earned ? <Award size={18} /> : <Lock size={16} />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-text-primary">{a.label}</span>
+                  <span className="block truncate text-xs text-text-secondary">{a.description}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {!!skills.data?.length && (
+        <Section title="Skills">
+          <div className="flex flex-wrap gap-2">
+            {skills.data.map((sk) => (
+              <Tag key={sk.id}>{sk.name}</Tag>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      <Section title={isMe ? 'Your projects' : 'Projects'}>
+        {projects.loading ? (
+          <ListSkeleton rows={2} />
+        ) : allProjects.length === 0 ? (
+          <EmptyState
+            icon={<FolderKanban size={22} />}
+            title={isMe ? 'No projects yet' : `${p.name?.split(' ')[0] ?? 'They'} hasn't posted a project yet`}
+            action={isMe ? <ButtonLink to="/projects/new">Create a project</ButtonLink> : undefined}
+          />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {allProjects.map((pr) => (
+              <ProjectCard key={pr.id} project={pr} />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {isMe && (
+        <Section title="More">
+          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+            <MenuLink to="/my-projects" icon={FolderKanban} label="My projects" />
+            <MenuLink to="/explore?tab=saved" icon={Bookmark} label="Saved projects" />
+            <MenuLink to="/funding" icon={HandCoins} label="Funding" />
+            <MenuLink to="/leaderboard" icon={Trophy} label="Leaderboard" />
+            {isAdmin && <MenuLink to="/admin" icon={ShieldCheck} label="Admin panel" />}
+            <MenuLink to="/settings" icon={Settings} label="Settings" />
+            <MenuLink icon={LogOut} label="Log out" danger onClick={() => signOut()} />
+          </div>
+        </Section>
       )}
     </div>
   )

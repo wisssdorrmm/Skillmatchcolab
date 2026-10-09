@@ -1,40 +1,28 @@
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { BRAND } from '../config/brand'
+import { SimplePage } from '../components/layout/SimplePage'
 
 export default function Privacy() {
-  const navigate = useNavigate()
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-bg px-6 py-6">
-      <div className="mb-5 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-text-muted hover:text-text-secondary">
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-lg font-semibold text-text-primary">Privacy Policy</h1>
+    <SimplePage title="Privacy Policy">
+      <div className="flex flex-col gap-4 text-[15px] leading-relaxed text-text-secondary">
+        <p>
+          We collect what you give us: your email, name, username, photo, bio, role, skills, links, and your onboarding answers (experience,
+          availability, country, what you're here for and how you heard about us). We also store the projects, roadmaps, posts, applications,
+          funding applications and messages you create.
+        </p>
+        <p>
+          To run the community and understand how {BRAND.name} is used, we record when you were last active and which days you used the app. You can
+          hide your online status from other members in Settings.
+        </p>
+        <p>
+          Profiles, projects, roadmaps and community posts are visible to other signed-in members by design. Direct messages, team chats,
+          applications and funding applications are only visible to the people involved and to {BRAND.name} admins where needed for moderation and
+          review.
+        </p>
+        <p>Your data is stored with Supabase, with row-level security limiting each person to what they're allowed to see.</p>
+        <p>You can request deletion of your account at any time from Settings → Deactivate account.</p>
+        <p className="text-xs text-text-muted">Placeholder legal text — replace with a reviewed policy before public launch.</p>
       </div>
-      <div className="flex flex-col gap-4 text-sm leading-relaxed text-text-secondary">
-        <p className="text-xs text-text-muted">Last updated: {new Date().toLocaleDateString()}</p>
-        <p>
-          We collect the information you provide directly: your name, email, profile photo, bio,
-          skills, and the content of projects, applications, and messages you create.
-        </p>
-        <p>
-          Your profile, project listings, and skills are visible to other users of the platform
-          by design, since discovery and collaboration is the core purpose of SkillMatch Hub.
-          Messages and application details are only visible to the people directly involved in
-          that conversation or application.
-        </p>
-        <p>
-          We use Supabase to store and secure your data, with row-level security restricting
-          access to only what each user is authorized to see.
-        </p>
-        <p>
-          You can request deletion of your account and associated data at any time from your
-          Profile settings. We'll process deletion requests and remove your data accordingly.
-        </p>
-        <p className="text-xs text-text-muted">
-          This is placeholder legal text — replace with reviewed policy before public launch.
-        </p>
-      </div>
-    </div>
+    </SimplePage>
   )
 }

@@ -1,143 +1,98 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Send } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import {
-  listDirectMessages,
-  sendDirectMessage,
-  subscribeToDirectMessages,
-  type DirectMessage,
-} from '../services/directMessages.service'
-import { getProjectById } from '../services/projects.service'
+import { errorMessage } from '../lib/errors'
+import { listDirectMessages, sendDirectMessage, subscribeToDirectMessages, type DirectMessage } from '../services/directMessages.service'
+import { getProject, type ProjectDetail } from '../services/projects.service'
 import { getProfile } from '../services/profiles.service'
+import type { Profile } from '../types/database'
+import { Avatar } from '../components/ui/Avatar'
+import { ErrorState, Spinner } from '../components/ui/States'
+import { useToast } from '../components/ui/Toast'
+import { Bubble, ChatHeader, ChatScreen, Composer, DaySeparator } from '../components/chat/ChatParts'
+import { useStickToBottom, withDays } from '../components/chat/chatUtils'
 
+/** Pre-acceptance thread between a project owner and one applicant. */
 export default function ApplicantChat() {
-  const { projectId, applicantId } = useParams<{ projectId: string; applicantId: string }>()
+  const { projectId = '', applicantId = '' } = useParams()
   const { user } = useAuth()
-  const navigate = useNavigate()
+  const toast = useToast()
+  const uid = user?.id ?? ''
+  const ownerView = uid !== applicantId
 
-  const [projectTitle, setProjectTitle] = useState('')
-  const [otherPartyName, setOtherPartyName] = useState('')
+  const [project, setProject] = useState<ProjectDetail | null>(null)
+  const [applicant, setApplicant] = useState<Profile | null>(null)
   const [messages, setMessages] = useState<DirectMessage[]>([])
-  const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  const isOwnerView = user?.id !== applicantId
+  const scrollRef = useStickToBottom(messages.length)
 
   useEffect(() => {
-    if (!projectId || !applicantId || !user) return
-
-    Promise.all([
-      listDirectMessages(projectId, applicantId),
-      getProjectById(projectId),
-      getProfile(isOwnerView ? applicantId : user.id),
-    ])
-      .then(([msgs, project, otherProfile]) => {
-        setMessages(msgs)
-        setProjectTitle(project?.title ?? '')
-        // Owner sees applicant's name; applicant sees the project owner's name.
-        if (isOwnerView) {
-          setOtherPartyName(otherProfile?.name ?? 'Applicant')
-        } else {
-          setOtherPartyName(project?.owner?.name ?? 'Project owner')
-        }
+    let cancelled = false
+    Promise.all([getProject(projectId), getProfile(applicantId), listDirectMessages(projectId, applicantId)])
+      .then(([p, a, list]) => {
+        if (cancelled) return
+        setProject(p)
+        setApplicant(a)
+        setMessages(list)
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-
-    const channel = subscribeToDirectMessages(projectId, applicantId, (message) => {
-      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]))
-    })
-
+      .catch((err) => !cancelled && setError(errorMessage(err)))
+      .finally(() => !cancelled && setLoading(false))
+    const ch = subscribeToDirectMessages(projectId, applicantId, (m) => setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m])))
     return () => {
-      channel.unsubscribe()
+      cancelled = true
+      supabase.removeChannel(ch)
     }
-  }, [projectId, applicantId, user, isOwnerView])
+  }, [projectId, applicantId])
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const other = ownerView
+    ? { id: applicantId, name: applicant?.name ?? 'Applicant', avatar: applicant?.avatar_url ?? null }
+    : { id: project?.owner?.id ?? '', name: project?.owner?.name ?? 'Project owner', avatar: project?.owner?.avatar_url ?? null }
 
-  const handleSend = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!projectId || !applicantId || !user || !text.trim()) return
-    const body = text.trim()
-    setText('')
-    setSending(true)
+  const send = async (text: string) => {
     try {
-      const sent = await sendDirectMessage(projectId, applicantId, user.id, body)
-      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]))
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setSending(false)
+      const m = await sendDirectMessage(projectId, applicantId, uid, text)
+      setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]))
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+      throw err
     }
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-border px-6 py-4">
-        <button onClick={() => navigate(-1)} className="text-text-muted hover:text-text-secondary">
-          <ArrowLeft size={20} />
-        </button>
-        <div className="min-w-0">
-          <p className="truncate font-medium text-text-primary">{otherPartyName}</p>
-          <p className="truncate text-xs text-text-muted">{projectTitle}</p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {loading ? (
-          <p className="py-10 text-center text-sm text-text-muted">Loading…</p>
-        ) : error ? (
-          <p className="py-10 text-center text-sm text-danger">{error}</p>
-        ) : messages.length === 0 ? (
-          <p className="py-10 text-center text-sm text-text-secondary">
-            No messages yet. {isOwnerView ? 'Ask them a question before deciding.' : 'Say hello 👋'}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {messages.map((m) => {
-              const isMine = m.sender_id === user?.id
-              return (
-                <div key={m.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${
-                      isMine ? 'bg-accent text-white' : 'bg-surface text-text-primary'
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                  <span className="mt-0.5 px-1 text-[10px] text-text-muted">
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              )
-            })}
-            <div ref={bottomRef} />
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-border p-4">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`Message ${otherPartyName}...`}
-          className="flex-1 rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+    <ChatScreen
+      scrollRef={scrollRef}
+      header={
+        <ChatHeader
+          left={<Avatar name={other.name} src={other.avatar} size="md" seed={other.id} />}
+          title={other.name}
+          subtitle={project ? <Link to={`/project/${projectId}`}>About {project.title}</Link> : undefined}
         />
-        <button
-          type="submit"
-          disabled={sending || !text.trim()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
-          aria-label="Send"
-        >
-          <Send size={16} />
-        </button>
-      </form>
-    </div>
+      }
+      composer={<Composer placeholder={`Message ${other.name}`} onSend={send} />}
+    >
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Spinner />
+        </div>
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : messages.length === 0 ? (
+        <p className="py-16 text-center text-sm text-text-secondary">
+          {ownerView ? 'Ask the applicant a question about their application.' : 'Introduce yourself to the project owner.'}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {withDays(messages.map((m) => ({ ...m, created_at: m.created_at }))).map((row) =>
+            row.kind === 'day' ? (
+              <DaySeparator key={`d-${row.iso}`} iso={row.iso} />
+            ) : (
+              <Bubble key={row.item.id} mine={row.item.sender_id === uid} text={row.item.text} time={row.item.created_at} />
+            ),
+          )}
+        </div>
+      )}
+    </ChatScreen>
   )
 }

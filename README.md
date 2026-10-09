@@ -1,188 +1,74 @@
-# SkillMatch Hub
+# Cobuild
 
-React + TypeScript + Vite + Tailwind v4 + Supabase.
+**Build together. Ship faster.** Builders find teammates, post a project with a roadmap, tick off steps to fill their progress bar, contribute to open source, chat in a community, and apply for funding.
 
-## Setup
+React 19 + TypeScript + Vite + Tailwind v4 + Supabase (Postgres, Auth, Realtime, Storage).
+
+## Run it locally
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
 ```
-npm install --legacy-peer-deps
-npm run dev
+
+`.env` needs your Supabase project:
+
+```
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key>
 ```
 
-`.env` is already populated with your Supabase URL + anon key (gitignored).
+## Set up the database (one file)
 
-## Status — Full MVP built
-All 12 screens are functional and wired to Supabase:
+Open Supabase → **SQL Editor**, paste all of [`sql/full_setup.sql`](sql/full_setup.sql) and press **Run**.
 
-- **Login / Signup / Forgot Password** — Supabase Auth, session persistence
-- **Profile Setup** — name, role, bio, goal, skills picker (writes to user_skills)
-- **Home / Discover** — search-as-you-type, project cards with owner + roles
-- **Create Project** — title, description, status, dynamic role tags → projects + project_roles_needed
-- **Project Details** — apply / withdraw / view status; owner sees "Manage Applicants"; shows current team
-- **My Projects** — Created by me / Joined tabs
-- **Manage Applications** — accept (promotes to project_members) / decline, pending vs decided sections
-- **Chats** — list of project threads with last-message preview
-- **Team Chat** — realtime messages via Supabase Realtime, auto-scroll
-- **Profile** — view + inline edit (name, role, bio, goal, skills), sign out
+- Works on the existing SkillMatch database and on a brand-new Supabase project.
+- Safe to run again later — it only adds what's missing and refreshes the GitHub projects.
+- On its **first** run it deletes all old projects (and their applications/chats), then imports 272 real open-source projects that are asking for contributors. A marker row (`cb_migrations`) stops that reset from ever running twice.
+- `wisdomudoudo24@gmail.com` becomes an admin — right away if that account exists, otherwise the moment it signs up. Add more admin emails to `admin_bootstrap_emails`, or add admins from **Admin → Admins** in the app.
 
-## Architecture
-- `src/services/` — one file per table, all Supabase calls live here
-- `src/context/AuthContext.tsx` — session + profile state
-- `src/components/ProtectedRoute.tsx` / `RequireProfile.tsx` — route guards
-- `src/types/database.ts` — schema types
+## What's inside
 
-## Known simplifications (v2 candidates)
-- Avatar upload not wired to the `avatars` storage bucket yet — profile avatar shows an initial instead of a photo
-- Skills-to-role matching is free-text (`project_roles_needed.role_name`), not FK'd to `skills` — matches your existing schema, noted in Phase 1 analysis
-- Chat thread list fetches last message per-project sequentially — fine at current scale, worth a view/RPC if project count grows large
+| Area | What it does |
+| --- | --- |
+| Onboarding | 6 quick steps: name + username, role, experience, skills, goals, country/availability/referral. Answers feed Admin → Insights. |
+| Projects | Create with a roadmap whose steps must add up to exactly 100%. Owners and teammates tick steps; the progress bar moves (live). Apply, accept, team chat, hype, save, share. |
+| Open source | Imported GitHub repos with good-first-issue / help-wanted labels, linking straight to their contribute page. Admins can import more from **Admin → Import projects**. |
+| Community | Rooms (#introductions, #show-your-build, #find-a-team…), likes, replies, admin-only #announcements, people directory, direct messages. |
+| Stickiness | XP + levels, daily streaks, achievements, top-builders leaderboard (week/month/all), "Just shipped" feed, notifications for hypes, replies, shipped steps, applications and funding. |
+| Funding | Apply in-app (tracked statuses + reviewer notes) and browse external grant / credit programs. |
+| Admin | Overview (members, online now, DAU/WAU/MAU, growth + activity charts), live activity, members with emails and onboarding answers, add/remove admins, insights, projects (feature/delete), GitHub importer, funding review + programs, community moderation, broadcast to everyone. |
 
-## Update: Home redesign + Explore screen
+Layout: fixed left menu on desktop with a right-hand highlights column; on phones a bottom tab bar (Community in the middle) and a floating **+** button to create a project.
 
-**Files added:**
-- `src/services/matching.service.ts` — deterministic relevance scoring (primary-role match = 100pts, exact skill→role match = 40pts, partial match = 15pts, recency as tie-breaker only)
-- `src/services/activity.service.ts` — real activity feed from `applications` + `project_members`, no fake data
-- `src/pages/Explore.tsx` — full ranked project list, search, status filter chips
+## How the rules are enforced
 
-**Files changed:**
-- `src/pages/Home.tsx` — redesigned: header (logo/notifications/avatar), greeting, Create Project, search, "Recommended for You" (top 3 ranked), "Your Activity" (real applications + memberships)
-- `src/layouts/AppLayout.tsx` — added Explore to bottom nav (5 items now: Home, Explore, My Projects, Chats, Profile — kept My Projects since it's existing working functionality, not part of the redesign brief)
-- `App.tsx` — added `/explore` route
+Everything important is checked in the database, not just the UI:
 
-**Not touched:** auth, Supabase client, project creation, project details, applications, chat, profile — all untouched, all still working exactly as before.
+- Roadmap weights are validated server-side (`create_project` / `update_project`) and can never exceed 100%.
+- `projects.progress` is recalculated by a trigger from finished steps; owners can't edit it directly.
+- Only the owner, teammates or an admin can tick steps (`set_milestone_done`).
+- Admin functions all start with an admin check; admin status lives in `app_admins`, which users can't write to.
+- Funding applications always start as "submitted" — applicants can't approve themselves.
+- XP and streaks are computed from real activity (`get_leaderboard`, `get_user_stats`).
 
-**Data freshness:** Home and Explore both re-fetch from Supabase on mount, on debounced search, and on browser tab focus — nothing is cached client-side, so new projects and profile/skill changes always show up immediately.
+## Project structure
 
-**Note:** No UI reference image was actually attached to that request — this was built from the detailed text spec, which was thorough enough to build from directly (matches the existing dark navy/blue theme already in the app). If you have the actual reference image, send it and I'll adjust the visual details to match exactly.
+```
+src/
+  config/brand.ts        product name + tagline (change once, updates everywhere)
+  components/            ui kit, layout (sidebar, mobile nav, right rail), chat, project, admin charts
+  context/               auth (+ admin flag), live unread counts
+  hooks/                 data loading, presence heartbeat, saved projects
+  lib/                   formatting, constants, roadmap helpers, error messages
+  pages/                 app screens; pages/admin/ for the admin panel
+  services/              all Supabase calls, one file per area
+sql/full_setup.sql       the whole database in one script
+api/validate-email-domain.ts   Vercel function: rejects email domains with no mail server
+```
 
-## Update: Matched to actual UI reference image
+## Deploy
 
-**Nav change:** Bottom nav is now exactly 4 items (Home, Explore, Chat, Profile), matching the reference. **My Projects** was removed from the bar and moved into a menu link on the Profile screen instead — still fully reachable, just relocated, since the reference didn't show a 5th nav icon.
+Push to the GitHub repo connected to Vercel. `vercel.json` handles SPA routing, security headers and the CSP (Supabase + GitHub API allowed). Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel → Project → Environment Variables.
 
-**Visual additions:**
-- `src/utils/projectVisual.ts` — deterministic per-project icon + color (hashed from project id). There's no `category`/`icon` column on `projects`, so this is a consistent visual assignment, not stored or fake data — same project always gets the same icon/color.
-- `src/utils/timeAgo.ts` — relative timestamps ("2h ago", "1d ago") matching the reference.
-- Bookmark icons on project cards — **session-only** (React state), not persisted. There's no `saved_projects` table, so this resets on page reload. Say the word if you want it persisted — needs one small additive table + 2 RLS policies.
-- "X open positions" — real count of `project_roles_needed` rows per project (not fabricated).
-- Explore's "Most Active" tab sorts by real `project_members` count (team size) — added a lightweight count to `listProjects()`.
-- Explore's "Recommended" tab filters to only projects with a real match score > 0; "All Projects" stays relevance-ranked but includes everything, same as before.
-
-**Left out (would require a fake data or schema change to do honestly):** the reference's "New message in project chat / Unread" activity type isn't included — there's no `last_read_at` tracking in the schema, so making that dot accurate would mean either fabricating it or adding a small migration. Applications + memberships in Your Activity are 100% real.
-
-## Update: Persisted bookmarks + Explore role filter
-
-**Run this SQL first (Supabase → SQL Editor)** — required for bookmarks to work, safe/additive:
-See `sql/002_saved_projects.sql` in this zip. Creates a `saved_projects` table with RLS policies. Doesn't touch anything existing.
-
-**Changes:**
-- `src/services/saved.service.ts` — new service for the above table
-- Bookmark icons on Home + Explore now persist for real (previously session-only)
-- Explore's **Filter** button now opens a real role-filter panel — select one or more roles, list narrows to matching projects, badge shows active filter count, "Clear" resets it
-
-## Update: Fixed profile creation bug (foreign key error on signup)
-
-`updateProfile()` in `src/services/profiles.service.ts` now uses `upsert` instead of `update`. Previously, if no database trigger existed to auto-create a `profiles` row on signup, Profile Setup would silently fail to create the profile, then error with `insert or update on table "user_skills" violates foreign key constraint "user_skills_user_id_fkey"` when trying to save skills. Upsert guarantees the row exists either way.
-
-## Update: Decluttered card design + more padding
-
-Feedback was the cards felt busy and the page had too little side padding. Changes:
-- Outer page padding increased (px-5 → px-6)
-- Card padding increased (p-4 → p-5), sharper corner radius (rounded-2xl)
-- Removed the "Unknown" owner placeholder — now shows the owner's real name if available, or just the timestamp if not (rather than a meaningless label)
-- Combined owner name + timestamp into one quieter line instead of two competing rows
-- Reduced role chips shown on Home cards from visual noise (border-only, lighter weight)
-- More breathing room between cards (gap-3 → gap-4) and inside them
-
-## Update: Direct messaging, notifications, unread tracking, avatar policy fix
-
-**Run `sql/003_messaging_notifications_reads.sql` in Supabase SQL Editor first** — additive only, adds:
-- `direct_messages` table + RLS (either owner or applicant can start a thread, scoped per project+applicant pair)
-- `notifications` table + 3 triggers (new application → owner notified; status change → applicant notified; new direct message → other party notified)
-- `chat_reads` table (tracks last-read timestamp per user per project, powers unread badges)
-- Avatar storage bucket + policies (run this section even if you think the bucket exists — it's safe to re-run, `on conflict do nothing`)
-
-**New files:**
-- `src/services/directMessages.service.ts`, `src/services/notifications.service.ts`, `src/services/chatReads.service.ts`
-- `src/pages/ApplicantChat.tsx` — pre-acceptance 1:1 thread, either side can message first
-- `src/components/NotificationBell.tsx` — real dropdown panel, live unread count, realtime updates, click-to-mark-read
-
-**Changed:**
-- `ManageApplications.tsx` — every applicant card now has a "Message" button
-- `ProjectDetails.tsx` — once you've applied, a "Message" link appears next to your application status
-- `Chats.tsx` — now shows unread dot on team chats (via chat_reads) + a new "Direct Messages" section listing DM threads
-- `TeamChat.tsx` — marks itself read on open and on every new incoming message while you're viewing it
-- `Home.tsx` / `Explore.tsx` — bell icon is now functional, not decorative
-
-**Not done:** "new project matches your skills" notifications — would need a trigger comparing every new project against every user's skills, which doesn't scale well as triggers and is better as a scheduled job. Flagging rather than building something that'll fall over with more users.
-
-## Update: Nav stability, Profile cleanup, legal pages, deactivation
-
-**Fixed:**
-- Bottom nav "disappearing" — was using `h-screen` (100vh, doesn't track mobile browser chrome collapsing/expanding). Switched to `h-dvh` (dynamic viewport height), which tracks the actual visible area. Also made the nav `shrink-0` so it can't get squeezed by content.
-- Project Details' Apply/Withdraw bar was `fixed` and overlapping the bottom nav (both fighting for the same screen position). Changed to `sticky` so it naturally stacks in the scroll flow instead.
-- Removed "Profile" from the bottom nav — reachable via the avatar in the Home/Explore header instead, per your request. **Heads up:** pages without that header (Chats, My Projects, Team Chat, etc.) currently have no direct profile shortcut — you'd navigate back to Home first. Flag it if that's annoying in practice.
-- Profile page: removed the redundant inline project list (it was pulling every created+joined project into a messy stacked list). "My Projects" button is now the only project entry point.
-
-**New — Profile Settings section:**
-- Terms of Service (`/terms`) and Privacy Policy (`/privacy`) — public pages, placeholder legal text (not reviewed by a lawyer — replace before real launch)
-- Deactivate Account (`/deactivate-account`) — two-step confirm (type "DELETE"), submits a request to `account_deletion_requests`, then signs out. **This does not actually delete the Supabase auth user** — that requires a service-role key, which can't run from the browser. This creates an auditable request; actual deletion needs to happen from your Supabase dashboard or a backend job.
-
-**Migration additions** (in `sql/003_...sql`, same file as before — just run it again, it's all `if not exists`): `account_deletion_requests` table + RLS.
-
-**Not fixed yet — needs your input:** the "applied but owner didn't see it" bug. I added `sql/diagnose_missing_applications.sql` — run those 3 queries and send me the results. My leading theory: the project was created under a different account than the one you're checking with (easy to happen while testing with multiple signups), but I don't want to guess further without seeing the actual data.
-
-## Update: Realtime fix, "matches your skills" notifications, code splitting, profile shortcuts
-
-**Run `sql/004_realtime_and_role_match_notifications.sql`** — this is almost certainly the actual fix for chat needing a manual refresh:
-
-Supabase doesn't automatically stream every table's changes — each table has to be explicitly added to the `supabase_realtime` publication (usually done via Database → Replication toggle in the dashboard, easy to miss when creating tables through SQL). `messages`, `direct_messages`, and `notifications` were never added, so `postgres_changes` subscriptions in the code were correctly written but had nothing to listen to. This migration adds them.
-
-**Also in that file:** the "notify me when a new project matches my skills" trigger you asked about — turns out this doesn't need a scheduled job after all (I was wrong earlier). It fires on `project_roles_needed` insert (which happens right after project creation), does one set-based query matching against `primary_role` and `user_skills`, and guards against duplicate notifications per project. Scales fine.
-
-**Code splitting:** converted all routes except Login/Signup to `React.lazy()`. Bundle warning is gone — main chunk dropped from 524kb to 400kb, and every other page (Home, Explore, Chats, etc.) now loads as its own small chunk on demand instead of all being bundled upfront.
-
-**Profile shortcuts restored:** added a small `PageHeader` component with the profile avatar to Chats and My Projects, so those pages aren't a dead end now that Profile isn't in the bottom nav.
-
-## Update: Fixed "sender has to refresh to see own message"
-
-Both `sendMessage()` and `sendDirectMessage()` now return the inserted row (via `.select().single()` after insert) instead of just confirming success. The sender's screen shows their message the instant the send succeeds — it no longer waits on the realtime round-trip, which was the actual bug (realtime updating other people fine, but the sender was purely dependent on that same round-trip coming back to their own screen, which is fragile/slow by nature). The existing dedupe-by-id check means this won't double up when the realtime event for that same message arrives moments later.
-
-## Update: Password visibility toggle + Confirm Password on signup
-
-- `src/components/PasswordInput.tsx` — reusable field with an eye icon to show/hide the password, used on both Login and Signup
-- Signup now has a Confirm Password field, validated client-side before submitting (must match, must be 6+ chars like before)
-
-## Update: Block disposable/throwaway email addresses at signup
-
-`src/utils/disposableEmail.ts` — a blocklist of ~90 known temp-mail domains (10minutemail, mailinator, guerrillamail, yopmail, etc.). Signup now rejects these client-side before hitting Supabase.
-
-**Honest limit:** this stops the obvious throwaway services, but it can't verify someone actually owns a real address like `bob@gmail.com` — genuine ownership verification only comes from the confirmation-email click, which is intentionally off. This is the standard trade-off apps make when they want frictionless signup: a blocklist catches the lazy/bulk abuse case, not a determined bad actor with a real inbox.
-
-If throwaway-account abuse becomes a real problem later, the next step up (without going back to forced email confirmation) would be a soft-gate: let people browse immediately, but require a confirmed email before they can create projects or apply — happy to build that if it comes up.
-
-## Update: Real domain validation (catches typo/fake domains like "languahe.com")
-
-The disposable-email blocklist only catches *known* temp-mail services — it correctly let `michea@languahe.com` through since that's not a recognized throwaway provider, just a domain that (most likely) doesn't exist or can't receive mail. Different problem, different fix:
-
-- `api/validate-email-domain.ts` — a Vercel serverless function that does a real DNS MX-record lookup on the submitted email's domain (Node's built-in `dns` module, no third-party API/key needed)
-- `src/utils/validateEmailDomain.ts` — client helper that calls it
-- `vercel.json` — updated so the SPA catch-all rewrite doesn't swallow `/api/*` requests (this would've silently broken the function otherwise)
-
-**Important:** this only works once deployed to Vercel — plain `npm run dev` has no `/api` routes to hit. The check is coded to **fail open** (allow signup) if the endpoint is unreachable, specifically so local development isn't blocked by this. That means locally, this protection is effectively off — only live on the deployed site. If you want it enforced locally too, `vercel dev` (Vercel's CLI) runs both the frontend and serverless functions together, unlike plain `vite dev`.
-
-**Combined with the disposable-email blocklist, signup now rejects:** known temp-mail services AND domains with no real mail server. It still can't verify someone owns `bob@gmail.com` specifically — that requires the confirmation-click flow, which stays off per your earlier request.
-
-## Update: Security pass
-
-**Fixed in code:**
-1. **Search filter injection** — `listProjects()` search was feeding raw user input directly into a Supabase `.or()` filter string. Someone typing commas/parentheses could manipulate the filter logic; `%`/`_` characters would act as unintended SQL wildcards. Now escaped and length-capped.
-2. **Open DNS-lookup relay** — the new `/api/validate-email-domain` function accepted any string as "domain" with no validation, so it could've been fed garbage or used to probe arbitrary hostnames. Now validates domain shape before doing any lookup.
-3. **No security headers at all** — added via `vercel.json`: `X-Frame-Options: DENY` (clickjacking protection), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (blocks camera/mic/geolocation access, none of which this app uses), and a `Content-Security-Policy` scoped to `self` + Supabase's domains only.
-4. **Unrestricted avatar uploads** — no file-type or size checks existed; someone could upload a 500MB file or a non-image. Now capped at 5MB, image-only, checked before the upload call.
-5. **Missing `autocomplete` attributes** on password fields — minor, but password managers behave better with `current-password` / `new-password` hints, and it's a widely-recommended baseline.
-6. **Dependency vulnerabilities** — `npm audit` found 3 high-severity issues (`nanoid` infinite loop bug, a `react-router` CSRF bypass). Ran `npm audit fix` — now 0 vulnerabilities, confirmed the app still builds clean after the version bumps.
-
-**What's already solid** (reviewed, not changed): RLS policies across all tables correctly scope reads/writes to the right owner/participant; no service-role key anywhere in client code; `.env` properly gitignored; React auto-escapes all rendered content so there's no XSS path through user-generated text (messages, bios, project descriptions, etc.) since nothing uses `dangerouslySetInnerHTML`.
-
-**Can't fix from code — recommend doing these in the Supabase dashboard:**
-- **Auth → Rate Limits**: Supabase has built-in login/signup rate limiting, worth confirming it's still at sane defaults (not disabled)
-- **Auth → Attack Protection → CAPTCHA**: since email confirmation is off, adding hCaptcha or Cloudflare Turnstile (both have free tiers) on signup would meaningfully cut down bot/bulk-account abuse — this needs a site key from one of those services plus a config toggle in Supabase, can't be done purely from this codebase
-- **Auth → Password Requirements**: currently just the client-side 6-character minimum this app enforces; Supabase can enforce stronger requirements (uppercase/number/symbol, leaked-password checking against HaveIBeenPwned) server-side if you want it non-bypassable
+Before a public launch: replace the placeholder Terms/Privacy text, and consider enabling CAPTCHA and leaked-password protection in Supabase → Auth.

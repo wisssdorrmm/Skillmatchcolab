@@ -8,6 +8,9 @@
 export async function hasValidMxRecords(email: string): Promise<boolean> {
   const domain = email.split('@')[1]
   if (!domain) return false
+  // `vite dev` has no /api routes; requesting one makes Vite try to compile the
+  // serverless file and pop an error overlay. Skip the check locally.
+  if (import.meta.env.DEV) return true
 
   try {
     const res = await fetch(`/api/validate-email-domain?domain=${encodeURIComponent(domain)}`)
