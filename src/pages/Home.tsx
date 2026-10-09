@@ -34,7 +34,7 @@ export default function Home() {
     const [skills, community, github] = await Promise.all([
       getSkillsForUser(uid),
       listProjects({ source: 'community', limit: 40, onlyOpen: true }),
-      listProjects({ source: 'github', sort: 'stars', limit: 60 }),
+      listProjects({ source: 'imported', sort: 'stars', limit: 80 }),
     ])
     const names = skills.map((s) => s.name)
     const others = (p: { owner_id: string | null }) => p.owner_id !== uid
@@ -211,7 +211,7 @@ export default function Home() {
       </Section>
 
       {!!forYou.data?.openSource.length && (
-        <Section title="Open source that wants help" subtitle="Real repos with good first issues." action={{ label: 'See more', to: '/explore?tab=github' }}>
+        <Section title="Open projects asking for help" subtitle="Open source and open calls that need your role — code, design, writing, marketing and more." action={{ label: 'See more', to: '/explore?tab=github' }}>
           <div className="flex flex-col gap-3">
             {forYou.data.openSource.map((p) => (
               <ProjectCard key={p.id} project={p} saved={saved.has(p.id)} onToggleSave={toggle} matchedOn={p._matchedOn} />

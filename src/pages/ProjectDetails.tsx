@@ -5,6 +5,7 @@ import {
   Check,
   ExternalLink,
   Flame,
+  Globe,
   Link2,
   MessageCircle,
   MoreHorizontal,
@@ -26,7 +27,7 @@ import {
   countUpvotes,
   deleteProject,
   getProject,
-  githubContributeUrl,
+  contributeUrl,
   hasUpvoted,
   setMilestoneDone,
   setUpvote,
@@ -78,6 +79,8 @@ export default function ProjectDetails() {
   const isMember = !!project?.project_members.some((m) => m.user_id === uid)
   const canTick = isOwner || isMember || isAdmin
   const isGithub = project?.source === 'github'
+  // Found outside the app (GitHub repo or another site): no roadmap/team/apply here.
+  const imported = !!project && project.source !== 'community'
 
   useEffect(() => {
     if (!id || !uid) return
@@ -221,7 +224,7 @@ export default function ProjectDetails() {
         back
         className="mb-2"
         actions={
-          (isOwner || isAdmin) && !isGithub ? (
+          (isOwner || isAdmin) && !imported ? (
             <div className="relative">
               <Button variant="ghost" size="sm" aria-label="Project options" onClick={() => setMenuOpen((o) => !o)}>
                 <MoreHorizontal size={18} />
@@ -259,11 +262,13 @@ export default function ProjectDetails() {
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {isGithub ? (
               <Badge tone="success">Open source</Badge>
+            ) : imported ? (
+              <Badge tone="info">Open call</Badge>
             ) : (
               <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', STAGE_STYLES[project.stage])}>{labelFor(STAGES, project.stage)}</span>
             )}
             {project.category && <Badge>{project.category}</Badge>}
-            {!isGithub && (project.status === 'closed' ? <Badge>Team full</Badge> : <Badge tone="accent">Looking for teammates</Badge>)}
+            {!imported && (project.status === 'closed' ? <Badge>Team full</Badge> : <Badge tone="accent">Looking for teammates</Badge>)}
           </div>
         </div>
       </div>
@@ -275,7 +280,17 @@ export default function ProjectDetails() {
             <GithubIcon size={20} className="shrink-0 text-text-secondary" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-text-primary">{project.external_owner}</span>
-              <span className="block text-xs text-text-secondary">Maintained on GitHub</span>
+              <span className="block text-xs text-text-secondary">
+                Maintained on GitHub{project.external_source && project.external_source !== 'GitHub' ? ` · request via ${project.external_source}` : ''}
+              </span>
+            </span>
+          </a>
+        ) : imported ? (
+          <a href={contributeUrl(project)} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-3">
+            <Globe size={20} className="shrink-0 text-text-secondary" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-text-primary">{project.external_owner ?? project.title}</span>
+              <span className="block text-xs text-text-secondary">Posted on {project.external_source ?? 'the web'}</span>
             </span>
           </a>
         ) : (
@@ -315,24 +330,36 @@ export default function ProjectDetails() {
 
       {/* Main CTA */}
       <div className="mt-4">
-        {isGithub ? (
+        {imported ? (
           <div className="grid gap-2 sm:grid-cols-2">
             <a
-              href={githubContributeUrl(project.external_url ?? project.repo_url ?? '')}
+              href={contributeUrl(project)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-ink hover:bg-accent-hover"
             >
-              <GithubIcon size={18} /> Find a first issue
+              {isGithub ? <GithubIcon size={18} /> : <ExternalLink size={18} />}
+              {!isGithub ? 'See the request' : project.external_contribute_url ? 'See open tasks' : 'Find a first issue'}
             </a>
-            <a
-              href={project.external_url ?? project.repo_url ?? '#'}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border-strong px-5 text-[15px] font-semibold text-text-primary hover:bg-surface-2"
-            >
-              <Star size={16} className="text-gold" /> {compactNumber(project.external_stars)} stars · View repo
-            </a>
+            {isGithub ? (
+              <a
+                href={project.external_url ?? project.repo_url ?? '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border-strong px-5 text-[15px] font-semibold text-text-primary hover:bg-surface-2"
+              >
+                <Star size={16} className="text-gold" /> {compactNumber(project.external_stars)} stars · View repo
+              </a>
+            ) : project.demo_url ? (
+              <a
+                href={project.demo_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border-strong px-5 text-[15px] font-semibold text-text-primary hover:bg-surface-2"
+              >
+                <Globe size={16} /> Visit website
+              </a>
+            ) : null}
           </div>
         ) : isOwner ? (
           <div className="grid gap-2 sm:grid-cols-2">
@@ -386,7 +413,7 @@ export default function ProjectDetails() {
       </div>
 
       {/* Progress + roadmap */}
-      {!isGithub && (
+      {!imported && (
         <Card className="mt-6 p-5 sm:p-6">
           <div className="flex items-end justify-between gap-4">
             <div>
@@ -470,14 +497,14 @@ export default function ProjectDetails() {
             ))}
           </div>
         )}
-        {(project.demo_url || (project.repo_url && !isGithub)) && (
+        {(!imported || isGithub) && (project.demo_url || (project.repo_url && !imported)) && (
           <div className="mt-5 flex flex-wrap gap-2">
             {project.demo_url && (
               <a href={project.demo_url} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary hover:bg-surface-2">
                 <ExternalLink size={15} /> Live demo
               </a>
             )}
-            {project.repo_url && !isGithub && (
+            {project.repo_url && !imported && (
               <a href={project.repo_url} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary hover:bg-surface-2">
                 <GithubIcon size={15} /> Code
               </a>
@@ -488,7 +515,7 @@ export default function ProjectDetails() {
 
       {project.project_roles_needed.length > 0 && (
         <Card className="mt-4 p-5 sm:p-6">
-          <SectionTitle>{isGithub ? 'Good fit for' : 'Looking for'}</SectionTitle>
+          <SectionTitle>{imported ? 'They need help from' : 'Looking for'}</SectionTitle>
           <div className="flex flex-wrap gap-2">
             {project.project_roles_needed.map((r) => (
               <span key={r.id} className="rounded-full bg-accent/10 px-3 py-1.5 text-[13px] font-medium text-accent">
@@ -499,7 +526,7 @@ export default function ProjectDetails() {
         </Card>
       )}
 
-      {!isGithub && (
+      {!imported && (
         <Card className="mt-4 p-5 sm:p-6">
           <SectionTitle>
             <span className="inline-flex items-center gap-1.5">

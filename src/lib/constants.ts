@@ -15,17 +15,39 @@ export const ROLES: Option[] = [
   { value: 'Smart Contract Developer', label: 'Web3 Developer', hint: 'Solidity, onchain apps' },
   { value: 'Game Developer', label: 'Game Developer', hint: 'Unity, Godot, engines' },
   { value: 'Security Engineer', label: 'Security Engineer', hint: 'AppSec, pentesting' },
-  { value: 'UI/UX Designer', label: 'Designer', hint: 'UI, UX, product design' },
+  { value: 'UI/UX Designer', label: 'UI / UX Designer', hint: 'Apps, websites, product design' },
+  { value: 'Graphic Designer', label: 'Graphic Designer', hint: 'Logos, branding, illustration' },
+  { value: 'Marketing / Growth', label: 'Marketing / Growth', hint: 'Launches, SEO, social, ads' },
+  { value: 'Community Manager', label: 'Community Manager', hint: 'Events, Discord, ambassadors' },
+  { value: 'Content Writer', label: 'Writer / Content Creator', hint: 'Blogs, copy, newsletters' },
+  { value: 'Video Creator', label: 'Video Creator', hint: 'YouTube, TikTok, tutorials' },
+  { value: 'Technical Writer', label: 'Technical Writer', hint: 'Docs, tutorials, guides' },
+  { value: 'Translator', label: 'Translator', hint: 'Localise apps and docs' },
+  { value: 'QA Tester', label: 'QA / Tester', hint: 'Find bugs before users do' },
+  { value: 'UX Researcher', label: 'UX Researcher', hint: 'Interviews, surveys, usability' },
+  { value: 'Data Analyst', label: 'Data Analyst', hint: 'Spreadsheets, dashboards, insights' },
   { value: 'Product Manager', label: 'Product Manager', hint: 'Roadmaps, users, specs' },
   { value: 'Founder', label: 'Founder', hint: 'Building a company' },
-  { value: 'Technical Writer', label: 'Technical Writer', hint: 'Docs, tutorials' },
   { value: 'Student', label: 'Student', hint: 'Learning to build' },
+]
+
+/** Explore's "Looking for" filter: each group matches any of these role names. */
+export const ROLE_GROUPS: { key: string; label: string; roles: string[] }[] = [
+  { key: 'dev', label: 'Developers', roles: ['Frontend Developer', 'Backend Developer', 'Full-stack Developer', 'Mobile Developer', 'AI/ML Engineer', 'DevOps Engineer', 'Systems Engineer', 'Smart Contract Developer', 'Game Developer', 'Security Engineer', 'Software Engineer', 'Co-founder'] },
+  { key: 'design', label: 'Designers', roles: ['UI/UX Designer', 'Graphic Designer', 'Product Designer'] },
+  { key: 'writing', label: 'Writers', roles: ['Technical Writer', 'Content Writer'] },
+  { key: 'marketing', label: 'Marketing & community', roles: ['Marketing / Growth', 'Growth Marketer', 'Community Manager', 'Video Creator'] },
+  { key: 'translation', label: 'Translators', roles: ['Translator'] },
+  { key: 'testing', label: 'Testers & accessibility', roles: ['QA Tester', 'QA Engineer', 'Accessibility Specialist'] },
+  { key: 'research', label: 'Research & data', roles: ['UX Researcher', 'Data Analyst', 'Data Scientist'] },
+  { key: 'product', label: 'Product & founders', roles: ['Product Manager', 'Founder', 'Co-founder'] },
 ]
 
 export const ROLE_SUGGESTIONS = [
   'Frontend Developer', 'Backend Developer', 'Full-stack Developer', 'Mobile Developer', 'AI/ML Engineer',
-  'Data Scientist', 'DevOps Engineer', 'Smart Contract Developer', 'Game Developer', 'Security Engineer',
-  'UI/UX Designer', 'Product Manager', 'Technical Writer', 'QA Engineer', 'Growth Marketer', 'Co-founder',
+  'UI/UX Designer', 'Graphic Designer', 'Marketing / Growth', 'Community Manager', 'Content Writer',
+  'Video Creator', 'Translator', 'QA Tester', 'UX Researcher', 'Data Analyst', 'Technical Writer',
+  'Product Manager', 'DevOps Engineer', 'Smart Contract Developer', 'Game Developer', 'Security Engineer', 'Co-founder',
 ]
 
 export const EXPERIENCE: Option[] = [

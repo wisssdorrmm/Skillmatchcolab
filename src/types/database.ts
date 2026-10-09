@@ -1,7 +1,7 @@
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected'
 export type ProjectStatus = 'open' | 'in_progress' | 'closed'
 export type ProjectStage = 'idea' | 'building' | 'beta' | 'launched'
-export type ProjectSource = 'community' | 'github'
+export type ProjectSource = 'community' | 'github' | 'external'
 export type FundingStatus = 'submitted' | 'under_review' | 'approved' | 'rejected'
 
 export interface Profile {
@@ -51,6 +51,8 @@ export interface Project {
   external_owner: string | null
   external_stars: number | null
   external_language: string | null
+  external_contribute_url: string | null
+  external_source: string | null
   is_featured: boolean
   progress: number
   created_at: string

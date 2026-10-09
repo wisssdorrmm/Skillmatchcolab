@@ -473,6 +473,19 @@ alter table public.projects add column if not exists external_language text;
 alter table public.projects add column if not exists is_featured boolean not null default false;
 alter table public.projects add column if not exists progress int not null default 0;
 alter table public.projects add column if not exists updated_at timestamptz not null default now();
+alter table public.projects add column if not exists external_contribute_url text;
+alter table public.projects add column if not exists external_source text;
+update public.projects set external_source = 'GitHub' where source = 'github' and external_source is null;
+
+-- Non-code skills so designers, writers, marketers and translators can describe themselves.
+insert into public.skills (name)
+select s from unnest(array[
+  'Copywriting','Content Writing','Blogging','SEO','Social Media','Email Marketing','Branding','Graphic Design',
+  'Illustration','Video Editing','Motion Design','Photography','Translation','Localization','User Research',
+  'Usability Testing','Manual Testing','Accessibility','Community Management','Event Planning','Public Speaking',
+  'Sales','Partnerships','Fundraising','Data Visualization','Spreadsheets','Project Management','Customer Support'
+]) as s
+where not exists (select 1 from public.skills k where lower(k.name) = lower(s));
 
 create unique index if not exists projects_external_url_key on public.projects (external_url) where external_url is not null;
 create index if not exists idx_projects_created on public.projects (created_at desc);
@@ -521,6 +534,8 @@ begin
       new.external_url := null;
       new.external_owner := null;
       new.external_stars := null;
+      new.external_contribute_url := null;
+      new.external_source := null;
       new.progress := 0;
     end if;
   else
@@ -534,6 +549,8 @@ begin
       new.external_url := old.external_url;
       new.external_owner := old.external_owner;
       new.external_stars := old.external_stars;
+      new.external_contribute_url := old.external_contribute_url;
+      new.external_source := old.external_source;
     end if;
     new.updated_at := now();
   end if;
@@ -581,7 +598,7 @@ create or replace function public.cb_applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if exists (select 1 from public.projects where id = new.project_id and (source <> 'community' or owner_id is null)) then
-    raise exception 'This is an open-source project — contribute on GitHub instead.';
+    raise exception 'This project is run outside Cobuild — use its link to contribute.';
   end if;
   if exists (select 1 from public.projects where id = new.project_id and owner_id = new.applicant_id) then
     raise exception 'You already own this project.';
@@ -1417,7 +1434,7 @@ begin
     'admins', (select count(*) from public.app_admins),
     'projects_total', (select count(*) from public.projects),
     'projects_community', (select count(*) from public.projects where source = 'community'),
-    'projects_github', (select count(*) from public.projects where source = 'github'),
+    'projects_github', (select count(*) from public.projects where source <> 'community'),
     'projects_new_7d', (select count(*) from public.projects where source = 'community' and created_at >= now() - interval '7 days'),
     'projects_completed', (select count(*) from public.projects where source = 'community' and progress >= 100),
     'avg_progress', (select coalesce(round(avg(progress)), 0) from public.projects where source = 'community'),
@@ -1638,14 +1655,16 @@ begin
   return n;
 end $$;
 
--- Upsert open-source projects (from the GitHub importer) by repo URL.
--- items: [{ t: title, d: description, u: url, o: owner, s: stars, l: language,
---           c: category, k: [tech], r: [roles], h: homepage }]
+-- Upsert projects found outside the app (GitHub repos, design calls, ...) by URL.
+-- items: [{ t: title, d: description, u: url, o: owner/org, s: stars, l: language, c: category,
+--           k: [tech], r: [roles], h: homepage, x: open-tasks link, src: where we found it }]
+-- Roles are only ever added, never removed, so re-running an older import keeps newer roles.
 create or replace function public.admin_import_projects(p_items jsonb)
 returns int language plpgsql security definer set search_path = public as $$
 declare
   item jsonb;
   pid uuid;
+  is_gh boolean;
   n int := 0;
 begin
   -- auth.uid() is null only when run from the SQL editor (anon can't execute this function).
@@ -1653,10 +1672,12 @@ begin
   if jsonb_typeof(p_items) is distinct from 'array' then raise exception 'Expected a list of projects.'; end if;
 
   for item in select * from jsonb_array_elements(p_items) loop
-    continue when coalesce(item->>'u', '') !~ '^https://github\.com/[^/]+/[^/]+$' or coalesce(btrim(item->>'t'), '') = '';
+    continue when coalesce(item->>'u', '') !~ '^https://[^\s]+$' or coalesce(btrim(item->>'t'), '') = '';
+    is_gh := (item->>'u') ~ '^https://github\.com/[^/]+/[^/]+$';
 
     insert into public.projects (owner_id, title, tagline, description, category, stage, status, tech_stack,
-                                 repo_url, demo_url, source, external_url, external_owner, external_stars, external_language)
+                                 repo_url, demo_url, source, external_url, external_owner, external_stars,
+                                 external_language, external_contribute_url, external_source)
     values (
       null,
       left(item->>'t', 80),
@@ -1666,26 +1687,32 @@ begin
       'launched',
       'open',
       coalesce((select array_agg(x) from jsonb_array_elements_text(coalesce(item->'k', '[]')) x), '{}'),
-      item->>'u',
-      nullif(item->>'h', ''),
-      'github',
+      case when is_gh then item->>'u' end,
+      case when coalesce(item->>'h', '') ~ '^https?://' then item->>'h' end,
+      case when is_gh then 'github' else 'external' end,
       item->>'u',
       item->>'o',
       nullif(item->>'s', '')::int,
-      nullif(item->>'l', '')
+      nullif(item->>'l', ''),
+      case when coalesce(item->>'x', '') ~ '^https://[^\s]+$' then item->>'x' end,
+      coalesce(nullif(item->>'src', ''), case when is_gh then 'GitHub' else 'Web' end)
     )
     on conflict (external_url) where external_url is not null do update set
       description = excluded.description,
       category = excluded.category,
       tech_stack = excluded.tech_stack,
-      demo_url = excluded.demo_url,
+      demo_url = coalesce(excluded.demo_url, projects.demo_url),
       external_stars = excluded.external_stars,
-      external_language = excluded.external_language
+      external_language = excluded.external_language,
+      external_contribute_url = coalesce(excluded.external_contribute_url, projects.external_contribute_url),
+      external_source = case when projects.external_source is null or projects.external_source = 'GitHub'
+                             then excluded.external_source else projects.external_source end
     returning id into pid;
 
-    delete from public.project_roles_needed where project_id = pid;
     insert into public.project_roles_needed (project_id, role_name)
-    select pid, r from jsonb_array_elements_text(coalesce(item->'r', '[]')) r;
+    select pid, r from (select distinct btrim(r) as r from jsonb_array_elements_text(coalesce(item->'r', '[]')) r) s
+    where s.r <> ''
+      and not exists (select 1 from public.project_roles_needed e where e.project_id = pid and lower(e.role_name) = lower(s.r));
 
     n := n + 1;
   end loop;

@@ -27,26 +27,111 @@ export interface GithubImportItem {
   k: string[]
   r: string[]
   h: string | null
+  /** direct link to the open tasks for the role we found them for */
+  x?: string | null
 }
+
+/**
+ * Non-code help: GitHub task labels that clearly mean "we need this kind of person".
+ * Ambiguous labels (plain "design", "testing", "video", "community") are left out on purpose.
+ */
+export const FIELD_SEARCHES: Record<string, { label: string; role: string; labels: string }> = {
+  design: { label: 'UI / UX designers', role: 'UI/UX Designer', labels: 'ux,"ui/ux","ux/ui",figma,"needs design","design needed","ux design","ui design"' },
+  graphic: { label: 'Graphic designers', role: 'Graphic Designer', labels: 'logo,branding,"graphic design",artwork,illustration' },
+  docs: { label: 'Technical writers', role: 'Technical Writer', labels: 'documentation,docs,tutorial' },
+  content: { label: 'Content writers', role: 'Content Writer', labels: 'blog,writing,article,copywriting,"blog post"' },
+  translation: { label: 'Translators', role: 'Translator', labels: 'translation,translations,l10n,localization,localisation' },
+  marketing: { label: 'Marketing & growth', role: 'Marketing / Growth', labels: 'marketing,"social media",promotion,outreach,seo,advocacy' },
+  community: { label: 'Community managers', role: 'Community Manager', labels: '"community management",newsletter,meetup,ambassador' },
+  testing: { label: 'Testers (QA)', role: 'QA Tester', labels: 'qa,"needs testing","manual testing","user testing","needs qa"' },
+  research: { label: 'UX researchers', role: 'UX Researcher', labels: '"user research","ux research",survey,usability' },
+  accessibility: { label: 'Accessibility', role: 'Accessibility Specialist', labels: 'accessibility,a11y' },
+}
+
+export type SearchSignal = 'help-wanted-issues' | 'good-first-issues' | keyof typeof FIELD_SEARCHES
 
 export interface GithubSearch {
   language: string
   topic: string
   minStars: number
-  signal: 'help-wanted-issues' | 'good-first-issues'
+  signal: SearchSignal
 }
 
-export async function searchGithub({ language, topic, minStars, signal }: GithubSearch): Promise<GithubRepo[]> {
-  const since = new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString().slice(0, 10)
-  const parts = [`${signal}:>2`, `stars:>${Math.max(0, minStars)}`, `pushed:>${since}`, 'archived:false', 'fork:false']
-  if (language) parts.push(`language:"${language}"`)
-  if (topic.trim()) parts.push(`topic:${topic.trim().toLowerCase().replace(/\s+/g, '-')}`)
-  const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(parts.join(' '))}&sort=${signal}&order=desc&per_page=30`
-  const res = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } })
+export interface GithubResult {
+  repo: GithubRepo
+  item: GithubImportItem
+}
+
+const SPAM = /hacktober|first[-_ ]?contribution|contribute[-_ ]?(here|repo)|^awesome|my[-_ ]?first|practice|template|boilerplate|portfolio/i
+
+async function githubGet<T>(path: string): Promise<T> {
+  const res = await fetch(`https://api.github.com/${path}`, { headers: { Accept: 'application/vnd.github+json' } })
   if (res.status === 403 || res.status === 429) throw new Error('GitHub rate limit reached. Wait a minute and try again.')
   if (!res.ok) throw new Error(`GitHub search failed (${res.status}).`)
-  const json = (await res.json()) as { items: GithubRepo[] }
-  return json.items.filter((r) => !r.fork && !r.archived && r.description)
+  return (await res.json()) as T
+}
+
+/** Repo details for many repos in a few searches (repo:a/b repo:c/d … stays under GitHub's 256-char query limit). */
+async function reposByName(names: string[]): Promise<GithubRepo[]> {
+  const out: GithubRepo[] = []
+  let batch: string[] = []
+  const flush = async () => {
+    if (!batch.length) return
+    const json = await githubGet<{ items: GithubRepo[] }>(`search/repositories?q=${encodeURIComponent(batch.map((n) => `repo:${n}`).join(' '))}&per_page=100`)
+    out.push(...json.items)
+    batch = []
+  }
+  for (const n of names) {
+    if ([...batch, n].map((x) => `repo:${x}`).join(' ').length > 240) await flush()
+    batch.push(n)
+  }
+  await flush()
+  return out
+}
+
+export async function searchGithub({ language, topic, minStars, signal }: GithubSearch): Promise<GithubResult[]> {
+  const since = new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+  const field = FIELD_SEARCHES[signal]
+
+  if (!field) {
+    const parts = [`${signal}:>2`, `stars:>${Math.max(0, minStars)}`, `pushed:>${since}`, 'archived:false']
+    if (language) parts.push(`language:"${language}"`)
+    if (topic.trim()) parts.push(`topic:${topic.trim().toLowerCase().replace(/\s+/g, '-')}`)
+    const json = await githubGet<{ items: GithubRepo[] }>(`search/repositories?q=${encodeURIComponent(parts.join(' '))}&sort=${signal}&order=desc&per_page=30`)
+    return json.items.filter((r) => !r.fork && !r.archived && r.description).map((repo) => ({ repo, item: toImportItem(repo) }))
+  }
+
+  // Non-code roles: find open, beginner-friendly tasks with that label, then group them by repo.
+  const q = [
+    'is:issue is:open archived:false',
+    `updated:>${since}`,
+    'label:"good first issue","help wanted",hacktoberfest,"up-for-grabs"',
+    `label:${field.labels}`,
+    language ? `language:"${language}"` : '',
+  ].filter(Boolean).join(' ')
+  const issues = await githubGet<{ items: { repository_url: string; labels: { name: string }[] }[] }>(`search/issues?q=${encodeURIComponent(q)}&sort=updated&per_page=100`)
+  const wanted = field.labels.split(',').map((l) => l.replace(/"/g, '').toLowerCase())
+  const byRepo = new Map<string, { count: number; label: string }>()
+  for (const it of issues.items) {
+    const full = it.repository_url.replace('https://api.github.com/repos/', '')
+    const label = it.labels.map((l) => l.name).find((n) => wanted.includes(n.toLowerCase())) ?? wanted[0]
+    const prev = byRepo.get(full)
+    byRepo.set(full, { count: (prev?.count ?? 0) + 1, label: prev?.label ?? label })
+  }
+  const top = [...byRepo.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 30).map(([n]) => n)
+  const repos = await reposByName(top)
+  return repos
+    .filter((r) => !r.fork && !r.archived && r.description && r.stargazers_count >= minStars && !SPAM.test(r.name) && !SPAM.test(r.description ?? ''))
+    .map((repo) => {
+      const base = toImportItem(repo)
+      const hit = byRepo.get(repo.full_name) ?? byRepo.get([...byRepo.keys()].find((k) => k.toLowerCase() === repo.full_name.toLowerCase()) ?? '')
+      const item: GithubImportItem = {
+        ...base,
+        r: [...new Set([field.role, ...base.r])].slice(0, 3),
+        x: hit ? `${repo.html_url}/issues?q=${encodeURIComponent(`is:issue is:open label:"${hit.label}"`)}` : null,
+      }
+      return { repo, item }
+    })
 }
 
 const has = (r: GithubRepo, ...topics: string[]) => topics.some((t) => (r.topics ?? []).includes(t))

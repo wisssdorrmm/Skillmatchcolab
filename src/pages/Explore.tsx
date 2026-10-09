@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useDebounced } from '../hooks/useAsync'
 import { useSaved } from '../hooks/useSaved'
 import { errorMessage } from '../lib/errors'
-import { CATEGORIES } from '../lib/constants'
+import { CATEGORIES, ROLE_GROUPS } from '../lib/constants'
 import { listProjects, listProjectsByIds, type ProjectCard as ProjectCardData, type ProjectSort } from '../services/projects.service'
 import { getSkillsForUser } from '../services/profiles.service'
 import { rankProjects } from '../services/matching.service'
@@ -43,6 +43,8 @@ export default function Explore() {
   const [params, setParams] = useSearchParams()
   const tab = (['all', 'community', 'github', 'saved'].includes(params.get('tab') ?? '') ? params.get('tab') : 'all') as Tab
   const category = params.get('category') ?? ''
+  const roleGroup = ROLE_GROUPS.find((g) => g.key === params.get('role')) ?? null
+  const roleNames = roleGroup?.roles
   const [search, setSearch] = useState(params.get('q') ?? '')
   const [sort, setSort] = useState<ProjectSort>(tab === 'github' ? 'stars' : 'newest')
   const q = useDebounced(search, 300)
@@ -84,14 +86,18 @@ export default function Explore() {
         const list = await listProjectsByIds(savedKey ? savedKey.split(',') : [])
         const needle = q.trim().toLowerCase()
         const filtered = list.filter(
-          (p) => (!category || p.category === category) && (!needle || `${p.title} ${p.description ?? ''}`.toLowerCase().includes(needle)),
+          (p) =>
+            (!category || p.category === category) &&
+            (!roleNames || p.project_roles_needed.some((r) => roleNames.includes(r.role_name))) &&
+            (!needle || `${p.title} ${p.description ?? ''}`.toLowerCase().includes(needle)),
         )
         return { items: filtered, total: filtered.length }
       }
       return listProjects({
         search: q,
         category: category || undefined,
-        source: tab === 'all' ? undefined : tab,
+        roles: roleNames,
+        source: tab === 'all' ? undefined : tab === 'github' ? 'imported' : tab,
         sort,
         limit: PAGE,
         offset: 0,
@@ -108,7 +114,7 @@ export default function Explore() {
     return () => {
       cancelled = true
     }
-  }, [tab, q, category, sort, savedKey, reloadKey])
+  }, [tab, q, category, roleGroup?.key, sort, savedKey, reloadKey])
 
   const loadMore = async () => {
     setLoadingMore(true)
@@ -116,7 +122,8 @@ export default function Explore() {
       const res = await listProjects({
         search: q,
         category: category || undefined,
-        source: tab === 'all' ? undefined : (tab as 'community' | 'github'),
+        roles: roleNames,
+        source: tab === 'all' ? undefined : tab === 'github' ? 'imported' : (tab as 'community'),
         sort,
         limit: PAGE,
         offset: items.length,
@@ -173,12 +180,26 @@ export default function Explore() {
         tabs={[
           { value: 'all', label: 'All' },
           { value: 'community', label: 'Community' },
-          { value: 'github', label: 'Open source' },
+          { value: 'github', label: 'Open source & calls' },
           { value: 'saved', label: 'Saved', count: saved.size },
         ]}
       />
 
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-4">
+        <p className="mb-2 text-[13px] font-medium text-text-secondary">Looking for</p>
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <Chip active={!roleGroup} onClick={() => setParam('role', '')}>
+            Anyone
+          </Chip>
+          {ROLE_GROUPS.map((g) => (
+            <Chip key={g.key} active={roleGroup?.key === g.key} onClick={() => setParam('role', roleGroup?.key === g.key ? '' : g.key)}>
+              {g.label}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
         <div className="no-scrollbar -mx-4 flex flex-1 gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <Chip active={!category} onClick={() => setParam('category', '')}>
             All topics
@@ -192,15 +213,17 @@ export default function Explore() {
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-sm text-text-secondary">{loading ? 'Loading…' : `${total} ${total === 1 ? 'project' : 'projects'}`}</p>
+        <p className="whitespace-nowrap text-sm text-text-secondary">{loading ? 'Loading…' : `${total} ${total === 1 ? 'project' : 'projects'}`}</p>
         {SORTS[tab].length > 1 && (
-          <Select value={sort} onChange={(e) => setSort(e.target.value as ProjectSort)} aria-label="Sort projects" className="h-10 w-auto min-w-[160px] text-sm">
-            {SORTS[tab].map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </Select>
+          <div className="w-[180px] shrink-0">
+            <Select value={sort} onChange={(e) => setSort(e.target.value as ProjectSort)} aria-label="Sort projects" className="h-10 text-sm">
+              {SORTS[tab].map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
         )}
       </div>
 
@@ -216,9 +239,9 @@ export default function Explore() {
             <EmptyState
               icon={<SearchX size={22} />}
               title="No projects match"
-              body={q || category ? 'Try a different search or topic.' : 'Be the first to post one.'}
+              body={q || category || roleGroup ? 'Try a different search, role or topic.' : 'Be the first to post one.'}
               action={
-                q || category ? (
+                q || category || roleGroup ? (
                   <Button
                     variant="secondary"
                     onClick={() => {

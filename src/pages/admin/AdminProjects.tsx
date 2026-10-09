@@ -15,7 +15,7 @@ import { EmptyState, ErrorState, ListSkeleton } from '../../components/ui/States
 import { useToast } from '../../components/ui/Toast'
 import { ProjectIcon } from '../../components/project/ProjectCard'
 
-type Source = 'community' | 'github'
+type Source = 'community' | 'imported'
 
 export default function AdminProjects() {
   const toast = useToast()
@@ -34,7 +34,7 @@ export default function AdminProjects() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    listProjects({ source, search: q, sort: source === 'github' ? 'stars' : 'newest', limit: 40 })
+    listProjects({ source, search: q, sort: source === 'imported' ? 'stars' : 'newest', limit: 40 })
       .then((r) => {
         if (cancelled) return
         setItems(r.items)
@@ -50,7 +50,7 @@ export default function AdminProjects() {
   const loadMore = async () => {
     setMore(true)
     try {
-      const r = await listProjects({ source, search: q, sort: source === 'github' ? 'stars' : 'newest', limit: 40, offset: items.length })
+      const r = await listProjects({ source, search: q, sort: source === 'imported' ? 'stars' : 'newest', limit: 40, offset: items.length })
       setItems((prev) => [...prev, ...r.items.filter((x) => !prev.some((p) => p.id === x.id))])
     } catch (e) {
       toast(errorMessage(e), 'error')
@@ -88,7 +88,7 @@ export default function AdminProjects() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-text-primary">Projects</h1>
-          <p className="mt-1 text-text-secondary">{loading ? 'Loading…' : `${total} ${source === 'github' ? 'open-source' : 'community'} projects`}</p>
+          <p className="mt-1 text-text-secondary">{loading ? 'Loading…' : `${total} ${source === 'imported' ? 'open source & open-call' : 'community'} projects`}</p>
         </div>
         <ButtonLink to="/admin/import" variant="secondary" size="sm">
           Import from GitHub
@@ -101,7 +101,7 @@ export default function AdminProjects() {
         onChange={setSource}
         tabs={[
           { value: 'community', label: 'Community' },
-          { value: 'github', label: 'Open source' },
+          { value: 'imported', label: 'Open source & calls' },
         ]}
       />
       <div className="relative mt-3">
@@ -131,7 +131,7 @@ export default function AdminProjects() {
                 <Link to={`/project/${p.id}`} className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-text-primary hover:text-accent">{p.title}</p>
                   <p className="truncate text-xs text-text-secondary">
-                    {p.source === 'github' ? `${p.external_owner} · ★ ${compactNumber(p.external_stars)}` : `${p.owner?.name ?? 'Unknown'} · ${formatDate(p.created_at)}`}
+                    {p.source === 'github' ? `${p.external_owner} · ★ ${compactNumber(p.external_stars)}` : p.source === 'external' ? `${p.external_owner ?? 'Open call'} · via ${p.external_source ?? 'the web'}` : `${p.owner?.name ?? 'Unknown'} · ${formatDate(p.created_at)}`}
                   </p>
                   {p.source === 'community' && <ProgressBar value={p.progress} size="xs" showLabel className="mt-1.5 max-w-xs" />}
                 </Link>

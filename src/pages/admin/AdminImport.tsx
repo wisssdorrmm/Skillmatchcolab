@@ -3,7 +3,7 @@ import { Check, DownloadCloud, Star } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { errorMessage } from '../../lib/errors'
 import { compactNumber } from '../../lib/format'
-import { searchGithub, toImportItem, type GithubRepo, type GithubSearch } from '../../services/github.service'
+import { FIELD_SEARCHES, searchGithub, type GithubResult, type GithubSearch } from '../../services/github.service'
 import { importProjects } from '../../services/admin.service'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -16,7 +16,7 @@ const LANGUAGES = ['', 'TypeScript', 'JavaScript', 'Python', 'Go', 'Rust', 'Dart
 export default function AdminImport() {
   const toast = useToast()
   const [query, setQuery] = useState<GithubSearch>({ language: '', topic: 'hacktoberfest', minStars: 200, signal: 'good-first-issues' })
-  const [results, setResults] = useState<GithubRepo[] | null>(null)
+  const [results, setResults] = useState<GithubResult[] | null>(null)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -27,9 +27,9 @@ export default function AdminImport() {
     setLoading(true)
     setError(null)
     try {
-      const repos = await searchGithub(query)
-      setResults(repos)
-      setPicked(new Set(repos.map((r) => r.full_name)))
+      const found = await searchGithub(query)
+      setResults(found)
+      setPicked(new Set(found.map((r) => r.repo.full_name)))
     } catch (err) {
       setError(errorMessage(err))
       setResults(null)
@@ -40,7 +40,7 @@ export default function AdminImport() {
 
   const doImport = async () => {
     if (!results) return
-    const items = results.filter((r) => picked.has(r.full_name)).map(toImportItem)
+    const items = results.filter((r) => picked.has(r.repo.full_name)).map((r) => r.item)
     if (!items.length) return
     setImporting(true)
     try {
@@ -65,7 +65,7 @@ export default function AdminImport() {
     <div>
       <h1 className="text-3xl font-bold tracking-tight text-text-primary">Import projects</h1>
       <p className="mt-1 max-w-2xl text-text-secondary">
-        Pull real open-source projects that are asking for contributors from GitHub. Projects already in the app are refreshed, not duplicated.
+        Pull real projects that are asking for help from GitHub — developers, designers, writers, translators, marketers, testers and more. Projects already in the app are refreshed, never duplicated.
       </p>
 
       <Card className="mt-6 p-5">
@@ -81,14 +81,25 @@ export default function AdminImport() {
               </Select>
             )}
           </Field>
-          <Field label="Topic" optional>
-            {(id) => <Input id={id} value={query.topic} placeholder="e.g. flutter, llm, web3" onChange={(e) => setQuery({ ...query, topic: e.target.value })} />}
+          <Field label="Topic" optional hint={query.signal in FIELD_SEARCHES ? 'Not used for other fields' : undefined}>
+            {(id) => (
+              <Input id={id} value={query.topic} disabled={query.signal in FIELD_SEARCHES} placeholder="e.g. flutter, llm, web3" onChange={(e) => setQuery({ ...query, topic: e.target.value })} />
+            )}
           </Field>
           <Field label="Looking for">
             {(id) => (
               <Select id={id} value={query.signal} onChange={(e) => setQuery({ ...query, signal: e.target.value as GithubSearch['signal'] })}>
-                <option value="good-first-issues">Good first issues</option>
-                <option value="help-wanted-issues">Help wanted</option>
+                <optgroup label="Developers">
+                  <option value="good-first-issues">Good first issues</option>
+                  <option value="help-wanted-issues">Help wanted</option>
+                </optgroup>
+                <optgroup label="Other fields">
+                  {Object.entries(FIELD_SEARCHES).map(([key, f]) => (
+                    <option key={key} value={key}>
+                      {f.label}
+                    </option>
+                  ))}
+                </optgroup>
               </Select>
             )}
           </Field>
@@ -115,7 +126,7 @@ export default function AdminImport() {
                 {picked.size} of {results.length} selected
               </p>
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setPicked(picked.size === results.length ? new Set() : new Set(results.map((r) => r.full_name)))}>
+                <Button variant="ghost" size="sm" onClick={() => setPicked(picked.size === results.length ? new Set() : new Set(results.map((r) => r.repo.full_name)))}>
                   {picked.size === results.length ? 'Select none' : 'Select all'}
                 </Button>
                 <Button size="sm" icon={<DownloadCloud size={16} />} loading={importing} disabled={!picked.size} onClick={doImport}>
@@ -124,9 +135,8 @@ export default function AdminImport() {
               </div>
             </div>
             <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-              {results.map((r) => {
+              {results.map(({ repo: r, item }) => {
                 const on = picked.has(r.full_name)
-                const item = toImportItem(r)
                 return (
                   <button key={r.full_name} onClick={() => togglePick(r.full_name)} aria-pressed={on} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-surface-2/50">
                     <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2', on ? 'border-accent bg-accent text-accent-ink' : 'border-border-strong')}>

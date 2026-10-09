@@ -31,17 +31,23 @@ export type ProjectSort = 'newest' | 'progress' | 'stars' | 'updated'
 
 export interface ProjectFilters {
   search?: string
-  source?: 'community' | 'github'
+  /** 'imported' = everything found outside the app (GitHub repos and other sites) */
+  source?: 'community' | 'github' | 'imported'
   category?: string
+  /** only projects needing at least one of these roles */
+  roles?: string[]
   sort?: ProjectSort
   limit?: number
   offset?: number
   onlyOpen?: boolean
 }
 
-export async function listProjects({ search = '', source, category, sort = 'newest', limit = 24, offset = 0, onlyOpen }: ProjectFilters = {}) {
-  let query = supabase.from('projects').select(CARD_SELECT, { count: 'exact' })
-  if (source) query = query.eq('source', source)
+export async function listProjects({ search = '', source, category, roles, sort = 'newest', limit = 24, offset = 0, onlyOpen }: ProjectFilters = {}) {
+  const select = roles?.length ? CARD_SELECT.replace('project_roles_needed(', 'project_roles_needed!inner(') : CARD_SELECT
+  let query = supabase.from('projects').select(select, { count: 'exact' })
+  if (roles?.length) query = query.in('project_roles_needed.role_name', roles)
+  if (source === 'imported') query = query.neq('source', 'community')
+  else if (source) query = query.eq('source', source)
   if (category) query = query.eq('category', category)
   if (onlyOpen) query = query.neq('status', 'closed')
   const q = safeSearchTerm(search)
@@ -187,6 +193,9 @@ export function subscribeToMilestones(projectId: string, onChange: () => void): 
     .subscribe()
 }
 
-export function githubContributeUrl(repoUrl: string): string {
-  return `${repoUrl.replace(/\/$/, '')}/contribute`
+/** Best link for "how do I help": the specific open tasks if we know them, else GitHub's contribute page. */
+export function contributeUrl(p: Pick<Project, 'external_contribute_url' | 'external_url' | 'repo_url' | 'source'>): string {
+  if (p.external_contribute_url) return p.external_contribute_url
+  const repo = p.external_url ?? p.repo_url ?? ''
+  return p.source === 'github' && repo ? `${repo.replace(/\/$/, '')}/contribute` : repo
 }

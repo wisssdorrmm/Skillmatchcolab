@@ -101,6 +101,7 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, saved, onToggleSave, matchedOn }: ProjectCardProps) {
   const isGithub = project.source === 'github'
+  const imported = project.source !== 'community'
   const roles = project.project_roles_needed ?? []
   const team = project.project_members?.[0]?.count ?? 0
   const hypes = project.project_upvotes?.[0]?.count ?? 0
@@ -124,7 +125,14 @@ export function ProjectCard({ project, saved, onToggleSave, matchedOn }: Project
             <div className="min-w-0">
               <h3 className="truncate text-[16px] font-semibold text-text-primary group-hover:text-accent">{project.title}</h3>
               <p className="mt-0.5 flex items-center gap-1.5 truncate text-[13px] text-text-secondary">
-                {isGithub ? (
+                {imported && !isGithub ? (
+                  <>
+                    <Globe size={13} className="shrink-0" />
+                    <span className="truncate">
+                      {project.external_owner ?? 'Open call'} · via {project.external_source ?? 'the web'}
+                    </span>
+                  </>
+                ) : isGithub ? (
                   <>
                     <GithubIcon size={13} className="shrink-0" />
                     <span className="truncate">{project.external_owner}</span>
@@ -163,18 +171,20 @@ export function ProjectCard({ project, saved, onToggleSave, matchedOn }: Project
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {isGithub ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">Open source</span>
+            ) : imported ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-info/10 px-2.5 py-1 text-[11px] font-semibold text-info">Open call</span>
             ) : (
               <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', STAGE_STYLES[project.stage] ?? 'bg-surface-2 text-text-secondary')}>
                 {labelFor(STAGES, project.stage)}
               </span>
             )}
             {project.category && <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-text-secondary">{project.category}</span>}
-            {project.status === 'closed' && !isGithub && (
+            {project.status === 'closed' && !imported && (
               <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-text-muted">Team full</span>
             )}
           </div>
 
-          {!isGithub && (
+          {!imported && (
             <ProgressBar value={project.progress} showLabel size="sm" className="mt-3.5" label={`${project.title} progress`} />
           )}
 
@@ -193,7 +203,7 @@ export function ProjectCard({ project, saved, onToggleSave, matchedOn }: Project
                 {roles.length > 2 && ` +${roles.length - 2}`}
               </span>
             )}
-            {!isGithub && (
+            {!imported && (
               <span className="inline-flex shrink-0 items-center gap-1">
                 <Users size={13} /> {team}
               </span>
