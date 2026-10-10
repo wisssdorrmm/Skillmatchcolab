@@ -7,6 +7,7 @@ import { AdminRoute, GuestOnly, ProtectedRoute, RequireOnboarded } from './compo
 import { AppShell } from './components/layout/AppShell'
 import { AdminLayout } from './components/admin/AdminLayout'
 import { FullPageSpinner } from './components/ui/States'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 
@@ -72,7 +73,7 @@ export default function App() {
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
 
-                <Route element={<ProtectedRoute />}>
+                <Route element={<ProtectedRoute guestHome={<Landing />} />}>
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/deactivate-account" element={<DeactivateAccount />} />
 

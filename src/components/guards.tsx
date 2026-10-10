@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { WifiOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -23,12 +24,15 @@ function ProfileErrorScreen({ message, onRetry }: { message: string; onRetry: ()
   )
 }
 
-/** Signed-in users only. */
-export function ProtectedRoute() {
+/** Signed-in users only. Visitors who open "/" see `guestHome` (the landing page) instead of the login redirect. */
+export function ProtectedRoute({ guestHome }: { guestHome?: ReactNode }) {
   const { session, loading, profileError, refreshProfile } = useAuth()
   const location = useLocation()
   if (loading) return <FullPageSpinner />
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  if (!session) {
+    if (guestHome && location.pathname === '/') return guestHome
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
   if (profileError) return <ProfileErrorScreen message={profileError} onRetry={refreshProfile} />
   return <Outlet />
 }
