@@ -13,6 +13,7 @@ import { Card, Section } from '../components/ui/Card'
 import { ConfirmDialog } from '../components/ui/Modal'
 import { EmptyState, ErrorState, ListSkeleton } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
+import { safeUrl } from '../lib/safeUrl'
 
 export default function Funding() {
   const { user } = useAuth()
@@ -117,7 +118,7 @@ export default function Funding() {
             {external.map((p) => (
               <a
                 key={p.id}
-                href={p.url ?? '#'}
+                href={safeUrl(p.url)}
                 target="_blank"
                 rel="noreferrer"
                 className="group flex flex-col rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-border-strong"

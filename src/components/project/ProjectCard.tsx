@@ -77,7 +77,7 @@ export function ProjectIcon({
   if (project.source === 'github' && project.external_owner && !broken) {
     return (
       <img
-        src={`https://github.com/${project.external_owner}.png?size=96`}
+        src={`https://github.com/${encodeURIComponent(project.external_owner)}.png?size=96`}
         alt=""
         loading="lazy"
         onError={() => setBroken(true)}

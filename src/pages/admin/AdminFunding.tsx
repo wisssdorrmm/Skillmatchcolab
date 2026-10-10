@@ -16,6 +16,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Tabs } from '../../components/ui/Tabs'
 import { EmptyState, ErrorState, ListSkeleton } from '../../components/ui/States'
 import { useToast } from '../../components/ui/Toast'
+import { safeUrl } from '../../lib/safeUrl'
 
 type Filter = 'open' | 'approved' | 'rejected' | 'all'
 
@@ -143,8 +144,8 @@ export default function AdminFunding() {
                     {p.provider} · {p.region} {p.is_internal ? '· in-app application' : ''}
                   </p>
                 </div>
-                {p.url && (
-                  <a href={p.url} target="_blank" rel="noreferrer" aria-label="Open link" className="flex h-9 w-9 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text-primary">
+                {safeUrl(p.url) && (
+                  <a href={safeUrl(p.url)} target="_blank" rel="noreferrer" aria-label="Open link" className="flex h-9 w-9 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text-primary">
                     <ExternalLink size={16} />
                   </a>
                 )}

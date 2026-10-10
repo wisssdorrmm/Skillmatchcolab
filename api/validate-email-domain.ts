@@ -16,6 +16,8 @@ export default async function handler(req: any, res: any) {
 
   dns.resolveMx(domain, (err, addresses) => {
     const hasMx = !err && Array.isArray(addresses) && addresses.length > 0
+    // Cached at the edge so repeat lookups of the same domain never reach DNS again.
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800')
     res.status(200).json({ valid: hasMx })
   })
 }

@@ -17,6 +17,9 @@ export function errorMessage(err: unknown, fallback = 'Something went wrong. Ple
   if (/duplicate key value.*username/i.test(raw) || /profiles_username_lower_key/i.test(raw)) {
     return 'That username is taken. Try another one.'
   }
+  if (/_text_len|violates check constraint/i.test(raw)) return 'That text is too long (or empty). Shorten it and try again.'
+  if (/mime type .* is not supported/i.test(raw)) return 'Please choose a PNG, JPG, WebP or GIF image.'
+  if (/exceeded the maximum allowed size|payload too large/i.test(raw)) return 'That file is too big. Images must be under 5MB.'
   if (/row-level security/i.test(raw)) return "You don't have permission to do that."
   return raw
 }

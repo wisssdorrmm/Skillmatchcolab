@@ -50,6 +50,7 @@ import { useToast } from '../components/ui/Toast'
 import { GithubIcon } from '../components/ui/GithubIcon'
 import { ProjectIcon } from '../components/project/ProjectCard'
 import { VerifiedBadge } from '../components/ui/VerifiedBadge'
+import { safeUrl } from '../lib/safeUrl'
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wider text-text-muted">{children}</h2>
@@ -277,7 +278,7 @@ export default function ProjectDetails() {
       {/* Owner line */}
       <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
         {isGithub ? (
-          <a href={`https://github.com/${project.external_owner}`} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-3">
+          <a href={`https://github.com/${encodeURIComponent(project.external_owner ?? '')}`} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-3">
             <GithubIcon size={20} className="shrink-0 text-text-secondary" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-text-primary">{project.external_owner}</span>
@@ -287,7 +288,7 @@ export default function ProjectDetails() {
             </span>
           </a>
         ) : imported ? (
-          <a href={contributeUrl(project)} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-3">
+          <a href={safeUrl(contributeUrl(project))} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-3">
             <Globe size={20} className="shrink-0 text-text-secondary" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-text-primary">{project.external_owner ?? project.title}</span>
@@ -337,7 +338,7 @@ export default function ProjectDetails() {
         {imported ? (
           <div className="grid gap-2 sm:grid-cols-2">
             <a
-              href={contributeUrl(project)}
+              href={safeUrl(contributeUrl(project))}
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-semibold text-accent-ink hover:bg-accent-hover"
@@ -347,7 +348,7 @@ export default function ProjectDetails() {
             </a>
             {isGithub ? (
               <a
-                href={project.external_url ?? project.repo_url ?? '#'}
+                href={safeUrl(project.external_url ?? project.repo_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border-strong px-5 text-[15px] font-semibold text-text-primary hover:bg-surface-2"
@@ -356,7 +357,7 @@ export default function ProjectDetails() {
               </a>
             ) : project.demo_url ? (
               <a
-                href={project.demo_url}
+                href={safeUrl(project.demo_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border-strong px-5 text-[15px] font-semibold text-text-primary hover:bg-surface-2"
@@ -504,12 +505,12 @@ export default function ProjectDetails() {
         {(!imported || isGithub) && (project.demo_url || (project.repo_url && !imported)) && (
           <div className="mt-5 flex flex-wrap gap-2">
             {project.demo_url && (
-              <a href={project.demo_url} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary hover:bg-surface-2">
+              <a href={safeUrl(project.demo_url)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary hover:bg-surface-2">
                 <ExternalLink size={15} /> Live demo
               </a>
             )}
             {project.repo_url && !imported && (
-              <a href={project.repo_url} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary hover:bg-surface-2">
+              <a href={safeUrl(project.repo_url)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary hover:bg-surface-2">
                 <GithubIcon size={15} /> Code
               </a>
             )}
