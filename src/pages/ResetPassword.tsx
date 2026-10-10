@@ -41,7 +41,7 @@ export default function ResetPassword() {
   return (
     <AuthLayout title="Choose a new password">
       {!ready ? (
-        <p className="text-sm text-text-secondary">
+        <p className="text-center text-sm text-text-secondary">
           Open this page from the link in your reset email.{' '}
           <Link to="/forgot-password" className="font-semibold text-accent hover:underline">
             Send a new link
@@ -55,7 +55,7 @@ export default function ResetPassword() {
           <Field label="Confirm new password">
             {(id) => <PasswordInput id={id} required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />}
           </Field>
-          {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">{error}</p>}
+          {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-center text-sm text-danger" role="alert">{error}</p>}
           <Button type="submit" size="lg" loading={loading} fullWidth>
             Save password
           </Button>

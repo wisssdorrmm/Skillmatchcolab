@@ -40,7 +40,7 @@ export default function Signup() {
   if (checkInbox) {
     return (
       <AuthLayout title="Check your inbox" subtitle={`We sent a confirmation link to ${email.trim()}.`}>
-        <div className="flex flex-col items-center rounded-2xl border border-border bg-surface p-6 text-center">
+        <div className="flex flex-col items-center rounded-2xl border border-border bg-surface-2 p-6 text-center">
           <MailCheck size={28} className="text-accent" />
           <p className="mt-3 text-sm text-text-secondary">Tap the link in the email, then come back and log in.</p>
         </div>
@@ -70,7 +70,7 @@ export default function Signup() {
           )}
         </Field>
 
-        {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">{error}</p>}
+        {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-center text-sm text-danger" role="alert">{error}</p>}
 
         <Button type="submit" size="lg" loading={loading} fullWidth>
           Create account
@@ -88,7 +88,7 @@ export default function Signup() {
         </p>
       </form>
 
-      <p className="mt-8 text-center text-sm text-text-secondary">
+      <p className="mt-6 text-center text-sm text-text-secondary">
         Already have an account?{' '}
         <Link to="/login" className="font-semibold text-accent hover:underline">
           Log in

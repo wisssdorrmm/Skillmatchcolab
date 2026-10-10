@@ -30,36 +30,30 @@ export default function Login() {
             <Input id={id} type="email" required autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           )}
         </Field>
-        <Field
-          label={
-            <span className="flex w-full items-center justify-between">
-              Password
-            </span>
-          }
-        >
+        <Field label="Password">
           {(id) => (
             <PasswordInput id={id} required autoComplete="current-password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} />
           )}
         </Field>
-        <div className="-mt-1 text-right">
-          <Link to="/forgot-password" className="text-[13px] font-medium text-accent hover:underline">
-            Forgot password?
-          </Link>
-        </div>
 
-        {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">{error}</p>}
+        {error && <p className="rounded-xl bg-danger/10 px-4 py-3 text-center text-sm text-danger" role="alert">{error}</p>}
 
         <Button type="submit" size="lg" loading={loading} fullWidth>
           Log in
         </Button>
       </form>
 
-      <p className="mt-8 text-center text-sm text-text-secondary">
-        New here?{' '}
-        <Link to="/signup" className="font-semibold text-accent hover:underline">
-          Create an account
+      <div className="mt-6 flex flex-col items-center gap-3 text-sm">
+        <Link to="/forgot-password" className="font-medium text-accent hover:underline">
+          Forgot password?
         </Link>
-      </p>
+        <p className="text-text-secondary">
+          New here?{' '}
+          <Link to="/signup" className="font-semibold text-accent hover:underline">
+            Create an account
+          </Link>
+        </p>
+      </div>
     </AuthLayout>
   )
 }
