@@ -237,3 +237,43 @@ export interface AppNotification {
   is_read: boolean
   created_at: string
 }
+
+export interface Hackathon {
+  id: string
+  title: string
+  organizer: string | null
+  url: string
+  source: string
+  location: string | null
+  is_online: boolean
+  starts_on: string | null
+  ends_on: string | null
+  prize_text: string | null
+  prize_usd: number | null
+  themes: string[]
+  participants: number
+  image_url: string | null
+  is_featured: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  /** Cobuild members who tapped "I'm in". */
+  joined_count: number
+}
+
+/** One row sent to the hackathon importer (short keys keep the payload small). */
+export interface HackathonImportItem {
+  t: string
+  u: string
+  o?: string | null
+  l?: string | null
+  on?: boolean
+  s?: string | null
+  e?: string | null
+  p?: string | null
+  pu?: number | null
+  th?: string[]
+  n?: number
+  src?: string
+  img?: string | null
+}

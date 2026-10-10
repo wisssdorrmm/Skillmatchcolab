@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Activity, ArrowLeft, BarChart3, DownloadCloud, FolderKanban, HandCoins, LayoutDashboard, Megaphone, MessagesSquare, ShieldCheck, Users } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, DownloadCloud, FolderKanban, HandCoins, LayoutDashboard, Megaphone, MessagesSquare, ShieldCheck, Swords, Users } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { usePresence } from '../../hooks/usePresence'
 import { LogoMark } from '../Logo'
@@ -15,6 +15,7 @@ const ADMIN_NAV = [
   { to: '/admin/projects', label: 'Projects', icon: FolderKanban },
   { to: '/admin/import', label: 'Import projects', icon: DownloadCloud },
   { to: '/admin/funding', label: 'Funding', icon: HandCoins },
+  { to: '/admin/hackathons', label: 'Hackathons', icon: Swords },
   { to: '/admin/community', label: 'Community', icon: MessagesSquare },
   { to: '/admin/broadcast', label: 'Broadcast', icon: Megaphone },
   { to: '/admin/admins', label: 'Admins', icon: ShieldCheck },

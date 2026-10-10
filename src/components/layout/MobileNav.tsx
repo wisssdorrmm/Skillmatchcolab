@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
-import { Bell, Compass, HandCoins, Home, Mail, MessagesSquare, Plus, Trophy, User } from 'lucide-react'
+import { Bell, Compass, HandCoins, Home, Mail, MessagesSquare, Plus, Swords, Trophy, User } from 'lucide-react'
 import { useUnread } from '../../context/UnreadContext'
 import { cn } from '../../lib/cn'
 import { LogoMark } from '../Logo'
@@ -14,7 +14,7 @@ function Dot({ n }: { n: number }) {
   )
 }
 
-/** Slim header on phones: logo + quick links to funding, leaderboard and notifications. */
+/** Slim header on phones: logo + quick links to hackathons, funding, leaderboard and notifications. */
 export function MobileTopBar() {
   const unread = useUnread()
   const icon = 'relative flex h-10 w-10 items-center justify-center rounded-xl text-text-secondary hover:bg-surface-2 hover:text-text-primary'
@@ -29,6 +29,9 @@ export function MobileTopBar() {
           </span>
         </Link>
         <div className="flex items-center">
+          <Link to="/hackathons" className={icon} aria-label="Hackathons">
+            <Swords size={20} />
+          </Link>
           <Link to="/funding" className={icon} aria-label="Funding">
             <HandCoins size={21} />
           </Link>

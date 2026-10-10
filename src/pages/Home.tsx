@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Flame, FolderKanban, MessagesSquare, Plus, Rocket, Sparkles, Zap } from 'lucide-react'
+import { ArrowRight, Flame, FolderKanban, MessagesSquare, Plus, Rocket, Sparkles, Trophy, Zap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { useSaved } from '../hooks/useSaved'
@@ -8,6 +8,7 @@ import { getLeaderboard, getUserStats } from '../services/stats.service'
 import { listMyProjects, listProjects, listRecentShips } from '../services/projects.service'
 import { listRecentPosts } from '../services/community.service'
 import { getSkillsForUser } from '../services/profiles.service'
+import { listHackathonHighlights } from '../services/hackathons.service'
 import { rankProjects } from '../services/matching.service'
 import { Section, StatCard } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Avatar'
@@ -16,6 +17,9 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState, ErrorState, ListSkeleton, Skeleton } from '../components/ui/States'
 import { ProjectCard, ProjectIcon } from '../components/project/ProjectCard'
 import { FundingPromo, Podium, TopBuildersList } from '../components/widgets'
+import { deadline } from '../lib/hackathonDates'
+import { HackathonIcon } from '../components/hackathon/HackathonParts'
+import { Badge } from '../components/ui/Badge'
 import { VerifiedBadge } from '../components/ui/VerifiedBadge'
 
 export default function Home() {
@@ -31,6 +35,7 @@ export default function Home() {
   }, [])
   const ships = useAsync(() => listRecentShips(6), [])
   const posts = useAsync(() => listRecentPosts(3), [])
+  const hackathons = useAsync(() => listHackathonHighlights(3).catch(() => []), [])
   const forYou = useAsync(async () => {
     const [skills, community, github] = await Promise.all([
       getSkillsForUser(uid),
@@ -184,6 +189,35 @@ export default function Home() {
           </div>
         )}
       </Section>
+
+      {!!hackathons.data?.length && (
+        <Section title="Hackathons to join" subtitle="Open now, online, free to enter." action={{ label: 'See all', to: '/hackathons' }}>
+          <div className="divide-y divide-border rounded-2xl border border-border bg-surface">
+            {hackathons.data.map((h) => {
+              const due = deadline(h)
+              return (
+                <Link key={h.id} to="/hackathons" className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-2/50">
+                  <HackathonIcon hackathon={h} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-text-primary">{h.title}</p>
+                    <p className="flex items-center gap-1.5 truncate text-xs text-text-secondary">
+                      {h.prize_text && (
+                        <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-accent">
+                          <Trophy size={12} /> {h.prize_text}
+                        </span>
+                      )}
+                      <span className="truncate">{h.organizer ?? 'Online'}</span>
+                    </p>
+                  </div>
+                  <Badge tone={due.tone} className="shrink-0">
+                    {due.label}
+                  </Badge>
+                </Link>
+              )
+            })}
+          </div>
+        </Section>
+      )}
 
       <FundingPromo className="mt-8 xl:hidden" />
 

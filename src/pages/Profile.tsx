@@ -15,6 +15,7 @@ import {
   Pencil,
   Settings,
   ShieldCheck,
+  Swords,
   Trophy,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,6 +39,7 @@ import { useToast } from '../components/ui/Toast'
 import { GithubIcon } from '../components/ui/GithubIcon'
 import { ProjectCard } from '../components/project/ProjectCard'
 import { VerifiedBadge } from '../components/ui/VerifiedBadge'
+import { safeUrl } from '../lib/safeUrl'
 
 function MenuLink({ to, icon: Icon, label, onClick, danger }: { to?: string; icon: LucideIcon; label: string; onClick?: () => void; danger?: boolean }) {
   const cls = cn('flex h-14 w-full items-center gap-3 px-4 text-left text-[15px] font-medium hover:bg-surface-2/50', danger ? 'text-danger' : 'text-text-primary')
@@ -93,8 +95,9 @@ function ProfileView() {
     }
   }
 
-  const github = p.github_url
-  const x = p.x_handle
+  const github = safeUrl(p.github_url)
+  const website = safeUrl(p.website_url)
+  const x = p.x_handle?.replace(/[^A-Za-z0-9_]/g, '') || null
 
   return (
     <div>
@@ -141,8 +144,8 @@ function ProfileView() {
                 𝕏 @{x}
               </a>
             )}
-            {p.website_url && (
-              <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-text-primary">
+            {website && (
+              <a href={website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-text-primary">
                 <Globe size={14} /> Website
               </a>
             )}
@@ -256,6 +259,7 @@ function ProfileView() {
           <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
             <MenuLink to="/my-projects" icon={FolderKanban} label="My projects" />
             <MenuLink to="/explore?tab=saved" icon={Bookmark} label="Saved projects" />
+            <MenuLink to="/hackathons" icon={Swords} label="Hackathons" />
             <MenuLink to="/funding" icon={HandCoins} label="Funding" />
             <MenuLink to="/leaderboard" icon={Trophy} label="Leaderboard" />
             {isAdmin && <MenuLink to="/admin" icon={ShieldCheck} label="Admin panel" />}

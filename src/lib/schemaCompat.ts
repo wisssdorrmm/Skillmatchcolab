@@ -6,6 +6,12 @@ export function isMissingColumn(error: PostgrestError | null | undefined): boole
   return error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')
 }
 
+/** True when a whole table isn't there yet (database update not run yet). */
+export function isMissingTable(error: PostgrestError | null | undefined): boolean {
+  if (!error) return false
+  return error.code === '42P01' || error.code === 'PGRST205' || /could not find the table|relation .* does not exist/i.test(error.message ?? '')
+}
+
 /**
  * Run a query with the newest column list; if the database hasn't been updated
  * yet (missing column), run it again with the older list so the app keeps working.

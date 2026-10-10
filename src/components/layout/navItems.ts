@@ -1,10 +1,11 @@
-import { Compass, HandCoins, Home, Mail, MessagesSquare, Trophy, User } from 'lucide-react'
+import { Compass, HandCoins, Home, Mail, MessagesSquare, Swords, Trophy, User } from 'lucide-react'
 
 export const MAIN_NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/explore', label: 'Explore', icon: Compass },
   { to: '/community', label: 'Community', icon: MessagesSquare },
   { to: '/messages', label: 'Messages', icon: Mail, badge: 'dms' as const },
+  { to: '/hackathons', label: 'Hackathons', icon: Swords },
   { to: '/funding', label: 'Funding', icon: HandCoins },
   { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { to: '/profile', label: 'Profile', icon: User },

@@ -28,11 +28,12 @@ Open Supabase → **SQL Editor** and run these files in order (paste each whole 
 4. [`sql/004_privacy_lockdown.sql`](sql/004_privacy_lockdown.sql) — removes old "anyone can read" rules so profiles and projects are members-only.
 5. [`sql/005_verified_and_cobuild.sql`](sql/005_verified_and_cobuild.sql) — verified badges (admins give them in **Admin → Members**) and the Cobuild project itself.
 6. [`sql/006_official_account.sql`](sql/006_official_account.sql) — the official **Cobuild** account welcomes every new member in #general (tagging them), and @mentions notify people.
+7. [`sql/007_hackathons_and_security.sql`](sql/007_hackathons_and_security.sql) — the Hackathons section (126 open hackathons) and the security hardening described under [Security](#security). It ends with a short checklist; every line should show ✅.
 
 - Works on the existing SkillMatch database and on a brand-new Supabase project.
 - Safe to run again later — it only adds what's missing, refreshes imported projects and never removes roles.
 - On its **first** run `full_setup.sql` deletes all old projects (and their applications/chats). A marker row (`cb_migrations`) stops that reset from ever running twice.
-- `wisdomudoudo24@gmail.com` becomes an admin — right away if that account exists, otherwise the moment it signs up. Add more admin emails to `admin_bootstrap_emails`, or add admins from **Admin → Admins** in the app.
+- `wisdomudoudo24@gmail.com` becomes the first admin. After that, admins are only added from **Admin → Admins** in the app (the email shortcut stops working once any admin exists, so nobody can claim admin by registering an address).
 
 ### Where the imported projects come from
 
@@ -55,6 +56,7 @@ Admins can pull more any time from **Admin → Import projects** — pick a fiel
 | Community | Rooms (#introductions, #show-your-build, #find-a-team…), likes, replies, admin-only #announcements, people directory, direct messages. |
 | Stickiness | XP + levels, daily streaks, achievements, top-builders leaderboard (week/month/all), "Just shipped" feed, notifications for hypes, replies, shipped steps, applications and funding. |
 | Funding | Apply in-app (tracked statuses + reviewer notes) and browse external grant / credit programs. |
+| Hackathons | Open hackathons (online / in person, themes, prizes, deadlines) linking to the official pages. Tap **Count me in** so others can see who's joining and team up in #hackathons. Admins refresh the list from Devpost with one click, or add / hide / feature entries in **Admin → Hackathons**. |
 | Admin | Overview (members, online now, DAU/WAU/MAU, growth + activity charts), live activity, members with emails and onboarding answers, add/remove admins, insights, projects (feature/delete), GitHub importer, funding review + programs, community moderation, broadcast to everyone. |
 
 Layout: fixed left menu on desktop with a right-hand highlights column; on phones a bottom tab bar (Community in the middle) and a floating **+** button to create a project.
@@ -70,6 +72,21 @@ Everything important is checked in the database, not just the UI:
 - Funding applications always start as "submitted" — applicants can't approve themselves.
 - XP and streaks are computed from real activity (`get_leaderboard`, `get_user_stats`).
 
+## Security
+
+What `sql/007` and the app guarantee (all enforced in the database, so they hold even if someone skips the app and calls the API directly):
+
+- **Logged-out visitors get nothing.** The public key can't read any table or run any function; new tables are closed by default.
+- **Private stays private.** DMs, team chats, notifications, applications, funding requests and saved projects are only visible to the people involved (and admins where they need it). "How did you hear about us" and the last-seen time of members who hide their status live in `profile_private`, which only admin functions can read.
+- **No tracking images.** A profile picture must be a file the member uploaded to this app's own storage (images only, 5 MB, no SVG); the avatar folder can't be listed. The site's CSP only allows images from our storage, GitHub avatars and Devpost's image CDN.
+- **No dangerous links.** Only `http(s)` links are stored or rendered — `javascript:` and friends are dropped on both sides.
+- **No impersonation.** Verified / official badges are admin-only; names and usernames that pose as Cobuild, admin or support are refused.
+- **No skipping the checks.** Projects, roadmaps and progress can only change through the validated functions; team members can only be people who applied; applications and funding requests can't be self-approved.
+- **Anti-spam speed limits** on posts, messages, hypes, applications, new chats and new projects.
+- **Closed by default.** Every old rule is replaced with one known set, every table has row-level security, and members can only call the functions the app actually uses.
+
+Two settings live in the Supabase dashboard (Auth) rather than in code: **Confirm email** (currently off, so sign-ups aren't proven to own their address) and **leaked-password protection**.
+
 ## Project structure
 
 ```
@@ -81,12 +98,13 @@ src/
   lib/                   formatting, constants, roadmap helpers, error messages
   pages/                 app screens; pages/admin/ for the admin panel
   services/              all Supabase calls, one file per area
-sql/                     full_setup.sql (database) + 002/003 (more projects across every field)
+sql/                     full_setup.sql (database) + 002–007 (more projects, badges, official account, hackathons + security)
 api/validate-email-domain.ts   Vercel function: rejects email domains with no mail server
+api/hackathons.ts              Vercel function: reads Devpost's public hackathon list (fixed source, cached)
 ```
 
 ## Deploy
 
 Push to the GitHub repo connected to Vercel. `vercel.json` handles SPA routing, security headers and the CSP (Supabase + GitHub API allowed). Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel → Project → Environment Variables.
 
-Before a public launch: replace the placeholder Terms/Privacy text, and consider enabling CAPTCHA and leaked-password protection in Supabase → Auth.
+Before a public launch: replace the placeholder Terms/Privacy text, and turn on **Confirm email**, CAPTCHA and leaked-password protection in Supabase → Auth.

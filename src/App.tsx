@@ -34,6 +34,7 @@ const TeamChat = page(() => import('./pages/TeamChat'))
 const ApplicantChat = page(() => import('./pages/ApplicantChat'))
 const Funding = page(() => import('./pages/Funding'))
 const FundingApply = page(() => import('./pages/FundingApply'))
+const Hackathons = page(() => import('./pages/Hackathons'))
 const Leaderboard = page(() => import('./pages/Leaderboard'))
 const Notifications = page(() => import('./pages/Notifications'))
 const Profile = page(() => import('./pages/Profile'))
@@ -46,6 +47,7 @@ const AdminInsights = page(() => import('./pages/admin/AdminInsights'))
 const AdminProjects = page(() => import('./pages/admin/AdminProjects'))
 const AdminImport = page(() => import('./pages/admin/AdminImport'))
 const AdminFunding = page(() => import('./pages/admin/AdminFunding'))
+const AdminHackathons = page(() => import('./pages/admin/AdminHackathons'))
 const AdminCommunity = page(() => import('./pages/admin/AdminCommunity'))
 const AdminBroadcast = page(() => import('./pages/admin/AdminBroadcast'))
 const AdminAdmins = page(() => import('./pages/admin/AdminAdmins'))
@@ -95,6 +97,7 @@ export default function App() {
                       <Route path="/chats/:projectId" element={<TeamChat />} />
                       <Route path="/funding" element={<Funding />} />
                       <Route path="/funding/apply" element={<FundingApply />} />
+                      <Route path="/hackathons" element={<Hackathons />} />
                       <Route path="/leaderboard" element={<Leaderboard />} />
                       <Route path="/notifications" element={<Notifications />} />
                       <Route path="/profile" element={<Profile />} />
@@ -112,6 +115,7 @@ export default function App() {
                         <Route path="projects" element={<AdminProjects />} />
                         <Route path="import" element={<AdminImport />} />
                         <Route path="funding" element={<AdminFunding />} />
+                        <Route path="hackathons" element={<AdminHackathons />} />
                         <Route path="community" element={<AdminCommunity />} />
                         <Route path="broadcast" element={<AdminBroadcast />} />
                         <Route path="admins" element={<AdminAdmins />} />
